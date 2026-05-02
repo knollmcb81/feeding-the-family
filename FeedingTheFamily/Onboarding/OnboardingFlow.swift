@@ -486,7 +486,7 @@ struct OnboardingFlow: View {
         state.rules.shopDay = shopDay
         state.rules.quickNights = orderedQuickNights
         state.rules.avoidIngredients = avoidances
-        if !apiKey.isEmpty { state.anthropicApiKey = apiKey }
+        if !apiKey.isEmpty { state.setApiKey(apiKey) }
 
         // Generate a fresh week respecting the new rules so the user lands on
         // a plan that's actually theirs, not Britt's seed. Locks aren't carried

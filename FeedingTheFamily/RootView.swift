@@ -25,6 +25,12 @@ enum AppTab: String, CaseIterable, Identifiable {
 
 @Observable
 final class AppState {
+    init() {
+        // Pick up the API key from Keychain on first construction so the value
+        // survives across launches even before Persistence.apply() runs.
+        self.anthropicApiKey = Keychain.getApiKey()
+    }
+
     var week: [DayPlan] = SeedData.dynamicWeek
     var rules: Rules = SeedData.rules
     var todayIdx: Int = Today.todayIdx
@@ -80,8 +86,19 @@ final class AppState {
     var currentWeekStartDate: Date = Today.monday
 
     /// Anthropic API key for real Claude-Vision-based food detection.
-    /// When empty, the Snap result falls back to the cycling demo fixtures.
+    /// Stored in the iOS Keychain (not the JSON snapshot). Mirrored here so
+    /// SwiftUI views can observe changes — write through `setApiKey(_:)`.
     var anthropicApiKey: String = ""
+
+    /// Single write path for the API key — updates both in-memory state and
+    /// Keychain so the value survives app reinstalls of the same bundle id.
+    func setApiKey(_ key: String) {
+        let cleaned = key
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        anthropicApiKey = cleaned
+        Keychain.setApiKey(cleaned)
+    }
 
     /// True once the user has completed the first-launch setup.
     /// Persisted, so onboarding only shows once.

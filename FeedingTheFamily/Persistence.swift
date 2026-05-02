@@ -68,6 +68,8 @@ enum Persistence {
 
 extension AppState {
     /// Capture the current state into a Codable snapshot.
+    /// `anthropicApiKey` is intentionally written as empty — the real value
+    /// lives in the iOS Keychain, not on disk in plaintext JSON.
     func snapshot() -> AppSnapshot {
         AppSnapshot(
             week: week,
@@ -86,7 +88,7 @@ extension AppState {
             dismissedSuggestions: dismissedSuggestions,
             archivedWeeks: archivedWeeks,
             currentWeekStartDate: currentWeekStartDate,
-            anthropicApiKey: anthropicApiKey,
+            anthropicApiKey: "",  // never persist — Keychain owns this
             hasCompletedOnboarding: hasCompletedOnboarding,
             nutritionGoal: nutritionGoal,
             forwardPlannedWeek: forwardPlannedWeek,
@@ -154,7 +156,16 @@ extension AppState {
         self.customMeals = snapshot.customMeals
         self.customItemHistory = snapshot.customItemHistory
         self.dismissedSuggestions = snapshot.dismissedSuggestions
-        self.anthropicApiKey = snapshot.anthropicApiKey
+        // Migrate: if an old snapshot has the key in plaintext and Keychain
+        // is empty, move it to Keychain. Then always read from Keychain so
+        // re-encoded snapshots no longer carry it.
+        let keychainKey = Keychain.getApiKey()
+        if !snapshot.anthropicApiKey.isEmpty && keychainKey.isEmpty {
+            Keychain.setApiKey(snapshot.anthropicApiKey)
+            self.anthropicApiKey = snapshot.anthropicApiKey
+        } else {
+            self.anthropicApiKey = keychainKey
+        }
         self.hasCompletedOnboarding = snapshot.hasCompletedOnboarding
         self.nutritionGoal = snapshot.nutritionGoal
         self.dismissedMealIds = snapshot.dismissedMealIds

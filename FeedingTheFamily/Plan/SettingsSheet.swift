@@ -94,10 +94,7 @@ struct SettingsSheet: View {
                                 .foregroundStyle(T.ink)
                             SecureField("sk-ant-…", text: Binding(
                                 get: { state.anthropicApiKey },
-                                set: { state.anthropicApiKey = $0
-                                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                                }
+                                set: { state.setApiKey($0) }
                             ))
                                 .font(AppFont.mono(12))
                                 .foregroundStyle(T.ink)
