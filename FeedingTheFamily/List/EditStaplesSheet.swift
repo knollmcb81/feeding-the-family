@@ -219,9 +219,28 @@ struct EditStaplesSheet: View {
 
             Spacer(minLength: 12)
 
-            Text(item.qty.joined(separator: " + "))
-                .font(AppFont.mono(11))
-                .foregroundStyle(T.ink2)
+            // Inline qty editor — tap the qty text to edit it.
+            TextField("qty", text: Binding(
+                get: { item.qty.joined(separator: " + ") },
+                set: { newQty in
+                    guard let idx = state.staples.firstIndex(where: { $0.id == item.id }) else { return }
+                    let trimmed = newQty.trimmingCharacters(in: .whitespacesAndNewlines)
+                    state.staples[idx] = GroceryItem(
+                        name: item.name,
+                        aisle: item.aisle,
+                        qty: trimmed.isEmpty ? [] : [trimmed],
+                        meals: item.meals,
+                        source: item.source
+                    )
+                }
+            ))
+            .font(AppFont.mono(11))
+            .foregroundStyle(T.ink2)
+            .tint(T.ink)
+            .multilineTextAlignment(.trailing)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .frame(maxWidth: 110)
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 22)

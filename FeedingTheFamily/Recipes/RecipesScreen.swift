@@ -15,7 +15,7 @@ struct RecipesScreen: View {
     }
 
     private var annotated: [Annotated] {
-        Planner.allMeals(custom: state.customMeals).map { base in
+        Planner.allMeals(custom: state.customMeals, dismissed: state.dismissedMealIds).map { base in
             let resolved = Planner.activeMeal(id: base.id, overrides: state.mealOverrides, custom: state.customMeals)
             return Annotated(
                 meal: resolved,
@@ -52,8 +52,12 @@ struct RecipesScreen: View {
                     }
                     filterPills
                         .padding(.top, 14)
-                    ForEach(filtered) { a in
-                        recipeRow(a)
+                    if filtered.isEmpty {
+                        emptyFilterState
+                    } else {
+                        ForEach(filtered) { a in
+                            recipeRow(a)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -244,6 +248,48 @@ struct RecipesScreen: View {
             }
             .padding(.horizontal, 6)
             .padding(.bottom, 12)
+        }
+    }
+
+    private var emptyFilterState: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: "tray")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(T.ink3)
+            Text(emptyTitle)
+                .font(AppFont.text(14, weight: .semibold))
+                .foregroundStyle(T.ink)
+            Text(emptyHint)
+                .font(AppFont.text(12))
+                .foregroundStyle(T.ink3)
+                .lineSpacing(2)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(T.rule, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        )
+        .padding(.top, 14)
+    }
+
+    private var emptyTitle: String {
+        switch filter {
+        case .all:     return "No recipes yet"
+        case .quick:   return "No quick recipes"
+        case .kid:     return "No kid-approved recipes"
+        case .weekend: return "No weekend recipes"
+        case .slop:    return "No flops yet 🎉"
+        }
+    }
+
+    private var emptyHint: String {
+        switch filter {
+        case .all:     return "Tap + Import to bring in a recipe from a URL or photo, or generate one from a saved snap in Ideas."
+        case .quick:   return "Quick recipes are 25 minutes or less. Edit a recipe's cook time to surface it here."
+        case .kid:     return "Recipes flagged kid-approved show up here. Toggle Kid-approved on a recipe in edit mode."
+        case .weekend: return "Recipes 45+ minutes show up here — the weekend project meals."
+        case .slop:    return "Recipes the family rated below 3 stars. Hopefully empty for a while."
         }
     }
 

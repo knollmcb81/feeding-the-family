@@ -339,7 +339,7 @@ enum AnthropicVision {
     }
 }
 
-private extension Data {
+extension Data {
     /// Decode → resize the longer side down to `maxDimension` → re-encode JPEG.
     /// Cheap on-device shrink so we don't upload a 4K photo.
     func resizedJPEG(maxDimension: CGFloat, quality: CGFloat = 0.8) -> Data? {

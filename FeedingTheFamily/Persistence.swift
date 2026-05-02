@@ -24,6 +24,8 @@ struct AppSnapshot: Codable {
     var hasCompletedOnboarding: Bool = false
     var nutritionGoal: NutritionGoal = .default
     var forwardPlannedWeek: [DayPlan]? = nil
+    var dismissedMealIds: Set<String> = []
+    var ratingFeedback: [String: [String]] = [:]
 }
 
 enum Persistence {
@@ -87,7 +89,9 @@ extension AppState {
             anthropicApiKey: anthropicApiKey,
             hasCompletedOnboarding: hasCompletedOnboarding,
             nutritionGoal: nutritionGoal,
-            forwardPlannedWeek: forwardPlannedWeek
+            forwardPlannedWeek: forwardPlannedWeek,
+            dismissedMealIds: dismissedMealIds,
+            ratingFeedback: ratingFeedback
         )
     }
 
@@ -153,6 +157,8 @@ extension AppState {
         self.anthropicApiKey = snapshot.anthropicApiKey
         self.hasCompletedOnboarding = snapshot.hasCompletedOnboarding
         self.nutritionGoal = snapshot.nutritionGoal
+        self.dismissedMealIds = snapshot.dismissedMealIds
+        self.ratingFeedback = snapshot.ratingFeedback
         // archivedWeeks + currentWeekStartDate + forwardPlannedWeek already set above.
     }
 }

@@ -292,11 +292,30 @@ struct OnboardingFlow: View {
                 }
             }
 
-            Text("Get a key at console.anthropic.com → Settings → API Keys. Costs ~½¢ per snap. The key is stored on this device only.")
-                .font(AppFont.text(11))
-                .foregroundStyle(T.ink3)
-                .lineSpacing(2)
-                .padding(.top, 4)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Don't have a key yet?")
+                    .font(AppFont.text(11, weight: .semibold))
+                    .foregroundStyle(T.ink2)
+                if let url = URL(string: "https://console.anthropic.com/settings/keys") {
+                    Link(destination: url) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Get one at console.anthropic.com")
+                                .font(AppFont.text(11, weight: .semibold))
+                        }
+                        .foregroundStyle(T.ink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().strokeBorder(T.ink, lineWidth: 1))
+                    }
+                }
+                Text("Costs ~½¢ per snap. The key is stored on this device only.")
+                    .font(AppFont.text(11))
+                    .foregroundStyle(T.ink3)
+                    .lineSpacing(2)
+            }
+            .padding(.top, 4)
         }
     }
 

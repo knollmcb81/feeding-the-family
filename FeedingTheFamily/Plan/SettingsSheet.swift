@@ -44,6 +44,18 @@ struct SettingsSheet: View {
                         )
                     }
 
+                    section("FRESHNESS") {
+                        sliderRow(
+                            label: "Fresh meat lasts",
+                            value: $bound.rules.meatDays,
+                            range: 2...7,
+                            step: 1,
+                            unit: " days"
+                        )
+                        bigShopDayRow
+                        topUpDayRow
+                    }
+
                     section("DAILY NUTRITION GOALS") {
                         sliderRow(
                             label: "Calories",
@@ -132,6 +144,21 @@ struct SettingsSheet: View {
                                 .font(AppFont.text(11))
                                 .foregroundStyle(T.ink3)
                                 .lineSpacing(2)
+                            if state.anthropicApiKey.isEmpty,
+                               let url = URL(string: "https://console.anthropic.com/settings/keys") {
+                                Link(destination: url) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "arrow.up.right.square")
+                                            .font(.system(size: 10, weight: .semibold))
+                                        Text("Get one at console.anthropic.com")
+                                            .font(AppFont.text(11, weight: .semibold))
+                                    }
+                                    .foregroundStyle(T.ink)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Capsule().strokeBorder(T.ink, lineWidth: 1))
+                                }
+                            }
                         }
                         .padding(.horizontal, 22)
                         .padding(.vertical, 10)
@@ -182,6 +209,101 @@ struct SettingsSheet: View {
                         .foregroundStyle(T.ink)
                 }
             }
+        }
+    }
+
+    private var bigShopDayRow: some View {
+        let weekdays = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Big shop day")
+                    .font(AppFont.text(14))
+                    .foregroundStyle(T.ink)
+                Spacer()
+                Text(state.rules.shopDay)
+                    .font(AppFont.mono(13, weight: .semibold))
+                    .foregroundStyle(T.ink)
+            }
+            HStack(spacing: 4) {
+                ForEach(weekdays, id: \.self) { d in
+                    Button {
+                        state.rules.shopDay = d
+                    } label: {
+                        Text(String(d.prefix(1)))
+                            .font(AppFont.mono(11, weight: .bold))
+                            .foregroundStyle(state.rules.shopDay == d ? T.ink : T.ink3)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(state.rules.shopDay == d ? T.accent : T.paperDeep)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("When the freshness clock starts. Set this to whatever day you actually did the big shop — your week-to-week rhythm can shift.")
+                .font(AppFont.text(11))
+                .foregroundStyle(T.ink3)
+                .lineSpacing(2)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(T.ruleSoft).frame(height: 1).padding(.horizontal, 22)
+        }
+    }
+
+    private var topUpDayRow: some View {
+        let weekdays = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Mid-week top-up")
+                    .font(AppFont.text(14))
+                    .foregroundStyle(T.ink)
+                Spacer()
+                Text(state.rules.topUpDay ?? "None")
+                    .font(AppFont.mono(13, weight: .semibold))
+                    .foregroundStyle(T.ink)
+            }
+            HStack(spacing: 4) {
+                Button {
+                    state.rules.topUpDay = nil
+                } label: {
+                    Text("None")
+                        .font(AppFont.mono(11, weight: .bold))
+                        .foregroundStyle(state.rules.topUpDay == nil ? T.ink : T.ink3)
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(state.rules.topUpDay == nil ? T.accent : T.paperDeep)
+                        )
+                }
+                .buttonStyle(.plain)
+                ForEach(weekdays, id: \.self) { d in
+                    Button {
+                        state.rules.topUpDay = (state.rules.topUpDay == d) ? nil : d
+                    } label: {
+                        Text(String(d.prefix(1)))
+                            .font(AppFont.mono(11, weight: .bold))
+                            .foregroundStyle(state.rules.topUpDay == d ? T.ink : T.ink3)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(state.rules.topUpDay == d ? T.accent : T.paperDeep)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("Mark a mid-week shop day so the freshness rule knows you'll restock fruit, milk, and meat. Late-week meals stop flagging once it's set.")
+                .font(AppFont.text(11))
+                .foregroundStyle(T.ink3)
+                .lineSpacing(2)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(T.ruleSoft).frame(height: 1).padding(.horizontal, 22)
         }
     }
 

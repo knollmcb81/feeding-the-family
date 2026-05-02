@@ -31,14 +31,16 @@ struct FreshnessLane: View {
     private func cell(idx: Int, day: DayPlan) -> some View {
         let m = Planner.meal(byId: day.mealId)
         let p = Planner.protein(for: m)
-        let inFresh = idx < rules.meatDays
         let isFreshMeat = p.perish == .fresh
-        let violating = isFreshMeat && idx >= rules.meatDays
+        let okFresh = Planner.isFreshOK(dayIdx: idx, rules: rules)
+        let violating = isFreshMeat && !okFresh
         let bg: Color = violating ? T.warn
             : isFreshMeat ? T.ink
-            : inFresh ? T.paperDeep
+            : okFresh ? T.paperDeep
             : T.ruleSoft
         let fg: Color = (isFreshMeat || violating) ? T.accent : T.ink3
+        let isShopDay = day.day == rules.shopDay
+        let isTopUpDay = day.day == rules.topUpDay
 
         RoundedRectangle(cornerRadius: 4)
             .fill(bg)
@@ -48,6 +50,14 @@ struct FreshnessLane: View {
                     .font(AppFont.mono(9, weight: .semibold))
                     .kerning(0.5)
                     .foregroundStyle(fg)
+            }
+            .overlay(alignment: .topTrailing) {
+                if isShopDay || isTopUpDay {
+                    Image(systemName: "bag.fill")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(fg.opacity(0.85))
+                        .padding(2)
+                }
             }
             .frame(maxWidth: .infinity)
     }

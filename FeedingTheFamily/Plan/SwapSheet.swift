@@ -7,6 +7,7 @@ struct SwapSheet: View {
     let ratings: [String: [Int]]
     let customMeals: [Meal]
     let mealOverrides: [String: Meal]
+    let dismissedMealIds: Set<String>
     let onSelect: (String) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -24,7 +25,6 @@ struct SwapSheet: View {
 
     private var candidates: [Candidate] {
         let isQuick = rules.quickNights.contains(day.day)
-        let dayNum = dayIdx + 1
         let prevProtein: String? = dayIdx > 0
             ? Planner.protein(for: Planner.activeMeal(id: week[dayIdx - 1].mealId,
                                                      overrides: mealOverrides,
@@ -34,26 +34,29 @@ struct SwapSheet: View {
             .filter { $0.offset != dayIdx }
             .map(\.element.mealId))
 
-        // Two passes — strict first, fallback that relaxes the fresh-meat day window.
-        // Without the fallback, late-week swaps showed an empty list.
-        func filter(allowLateFresh: Bool) -> [Meal] {
-            Planner.allMeals(custom: customMeals)
-                .map { Planner.activeMeal(id: $0.id, overrides: mealOverrides, custom: customMeals) }
-                .filter { m in
-                    if m.id == day.mealId { return false }
-                    if weekMealsExceptThis.contains(m.id) { return false }
-                    if m.ings.contains(where: { rules.avoidIngredients.contains($0.name) }) { return false }
-                    if isQuick && m.time > 30 { return false }
-                    let p = Planner.protein(for: m)
-                    if !allowLateFresh && p.perish == .fresh && dayNum > rules.meatDays { return false }
-                    if let prev = prevProtein, prev == p.name { return false }
-                    return true
-                }
+        // Swap is permissive about the fresh-meat day window — the freshness lane
+        // already flags violations visually, and a swap is a deliberate manual
+        // override anyway. This is what makes Sun (day 7) show real options
+        // instead of just "leftovers".
+        let pool = Planner.allMeals(custom: customMeals, dismissed: dismissedMealIds)
+            .map { Planner.activeMeal(id: $0.id, overrides: mealOverrides, custom: customMeals) }
+
+        func filter(strict: Bool) -> [Meal] {
+            pool.filter { m in
+                if m.id == day.mealId { return false }
+                if weekMealsExceptThis.contains(m.id) { return false }
+                if m.ings.contains(where: { rules.avoidIngredients.contains($0.name) }) { return false }
+                if isQuick && m.time > 30 { return false }
+                let p = Planner.protein(for: m)
+                if strict, let prev = prevProtein, prev == p.name { return false }
+                return true
+            }
         }
 
-        var meals = filter(allowLateFresh: false)
+        var meals = filter(strict: true)
         if meals.isEmpty {
-            meals = filter(allowLateFresh: true)
+            // Last-ditch: also drop the no-repeat-protein rule.
+            meals = filter(strict: false)
         }
 
         return meals

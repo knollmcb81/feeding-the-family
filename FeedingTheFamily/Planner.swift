@@ -19,9 +19,10 @@ struct GroceryItem: Identifiable, Hashable, Codable {
 }
 
 enum Planner {
-    /// All meals available across the app — seed library + user-generated.
-    static func allMeals(custom: [Meal] = []) -> [Meal] {
-        SeedData.meals + custom
+    /// All meals available across the app — seed library + user-generated,
+    /// minus anything the user has dismissed/hidden.
+    static func allMeals(custom: [Meal] = [], dismissed: Set<String> = []) -> [Meal] {
+        (SeedData.meals + custom).filter { !dismissed.contains($0.id) }
     }
 
     /// Returns the active version of a meal — override wins, custom meals next, else seed.
@@ -84,10 +85,39 @@ enum Planner {
         }
     }
 
+    /// Days since the most recent shop (primary `shopDay` or optional `topUpDay`)
+    /// for the given Mon-relative day index. The "shop" is assumed to happen
+    /// at the start of the named weekday — buying meat on Wed makes Wed itself age 0.
+    /// If both shop days fall after the queried day in the same week, we look
+    /// back to last week's shop.
+    static func freshAge(dayIdx: Int, rules: Rules) -> Int {
+        let weekdays = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+        var shopIdxs: [Int] = []
+        if let s = weekdays.firstIndex(of: rules.shopDay) { shopIdxs.append(s) }
+        if let t = rules.topUpDay, let i = weekdays.firstIndex(of: t) { shopIdxs.append(i) }
+        guard !shopIdxs.isEmpty else { return 99 }
+
+        return shopIdxs.map { shopIdx -> Int in
+            shopIdx <= dayIdx ? (dayIdx - shopIdx) : (dayIdx + 7 - shopIdx)
+        }.min() ?? 99
+    }
+
+    /// Convenience predicate matching the old `dayIdx < meatDays` shape.
+    static func isFreshOK(dayIdx: Int, rules: Rules) -> Bool {
+        freshAge(dayIdx: dayIdx, rules: rules) <= rules.meatDays
+    }
+
     /// Re-pick meals for any unlocked day. Mirrors planner.jsx autoDraft.
     /// Respects: locked days, avoid list, fresh-meat day window, no repeat protein, slot bias.
     /// Within the candidate set, picks the meal with the highest confidence score.
-    static func autoDraft(week: [DayPlan], rules: Rules, ratings: [String: [Int]], weekendDiscovery: Bool = true) -> [DayPlan] {
+    static func autoDraft(
+        week: [DayPlan],
+        rules: Rules,
+        ratings: [String: [Int]],
+        weekendDiscovery: Bool = true,
+        customMeals: [Meal] = [],
+        dismissed: Set<String> = []
+    ) -> [DayPlan] {
         // Locked meals can't be reused. Unlocked-day meals are also blocked initially
         // so each unlocked day actually swaps; we relax this if no candidates remain.
         let lockedMeals = Set(week.filter { $0.locked }.map(\.mealId))
@@ -105,14 +135,15 @@ enum Planner {
 
             // 3 progressively-relaxed filter passes. Each falls back to the next
             // if no candidates remain.
+            let candidatePool = allMeals(custom: customMeals, dismissed: dismissed)
             func filter(allowLateFresh: Bool, allowOriginal: Bool) -> [Meal] {
-                SeedData.meals.filter { m in
+                candidatePool.filter { m in
                     if used.contains(m.id) { return false }
                     if !allowOriginal && unlockedCurrentMeals.contains(m.id) { return false }
                     if m.ings.contains(where: { rules.avoidIngredients.contains($0.name) }) { return false }
                     if isQuick && m.time > 30 { return false }
                     let p = protein(for: m)
-                    if !allowLateFresh && p.perish == .fresh && dayNum > rules.meatDays { return false }
+                    if !allowLateFresh && p.perish == .fresh && !isFreshOK(dayIdx: i, rules: rules) { return false }
                     if let prevName = prevProteinName, prevName == p.name { return false }
                     return true
                 }
@@ -162,14 +193,18 @@ enum Planner {
     static func validate(week: [DayPlan], rules: Rules) -> [PlanWarning] {
         var warnings: [PlanWarning] = []
 
-        let fresh = freshDayIndices(in: week)
-        if let last = fresh.max(), last + 1 > rules.meatDays {
-            let p = protein(for: meal(byId: week[last].mealId))
-            warnings.append(.init(
-                kind: .meatLate,
-                dayIdx: last,
-                msg: "\(week[last].day)'s \(p.name) is on day \(last + 1) — past your \(rules.meatDays)-day fresh limit."
-            ))
+        // Per-day freshness check using the multi-shop age model.
+        for (idx, day) in week.enumerated() {
+            let p = protein(for: meal(byId: day.mealId))
+            guard p.perish == .fresh else { continue }
+            let age = freshAge(dayIdx: idx, rules: rules)
+            if age > rules.meatDays {
+                warnings.append(.init(
+                    kind: .meatLate,
+                    dayIdx: idx,
+                    msg: "\(day.day)'s \(p.name) is \(age) days from your last shop — past your \(rules.meatDays)-day fresh limit."
+                ))
+            }
         }
 
         for qn in rules.quickNights {

@@ -54,6 +54,10 @@ struct DayPlan: Identifiable, Hashable, Codable {
 struct Rules: Codable {
     var meatDays: Int
     var shopDay: String
+    /// Optional mid-week top-up day. Items bought here reset the freshness
+    /// window for late-week meals (e.g. shop Sun + top-up Wed = no fresh-meat
+    /// violations all week long with meatDays=4).
+    var topUpDay: String? = nil
     var quickNights: [String]
     var avoidIngredients: [String]
     var proteinTarget: Int

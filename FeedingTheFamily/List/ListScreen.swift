@@ -87,6 +87,10 @@ struct ListScreen: View {
             }
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 0) {
+                    if totalItems == 0 {
+                        emptyListState
+                            .padding(.top, 24)
+                    }
                     ForEach(Aisle.allCases, id: \.self) { aisle in
                         if let items = grouped[aisle], !items.isEmpty {
                             aisleSection(aisle, items: items)
@@ -382,6 +386,27 @@ struct ListScreen: View {
         else { state.checkedItems.insert(id) }
     }
 
+    private var emptyListState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "cart")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(T.ink3)
+            Text("Nothing in your list yet")
+                .font(AppFont.text(15, weight: .semibold))
+                .foregroundStyle(T.ink)
+            Text("Plan some meals on the Plan tab and ingredients will roll up here. Or tap **+ Add** to add one-off items, and turn on **Weekly staples** for the things you always buy.")
+                .font(AppFont.text(12))
+                .foregroundStyle(T.ink2)
+                .lineSpacing(2)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(T.rule, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        )
+    }
+
     // ── Suggestions ─────────────────────────
 
     private var suggestionsSection: some View {
@@ -418,7 +443,7 @@ struct ListScreen: View {
                 Text(s.reason)
                     .font(AppFont.text(11.5))
                     .foregroundStyle(T.ink2)
-                Text("\(s.qty) · suggest as weekly staple")
+                Text(metaLine(for: s))
                     .font(AppFont.mono(10.5))
                     .foregroundStyle(T.ink3)
             }
@@ -428,9 +453,9 @@ struct ListScreen: View {
                     acceptSuggestion(s)
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "plus")
+                        Image(systemName: actionIcon(for: s))
                             .font(.system(size: 10, weight: .bold))
-                        Text("Add")
+                        Text(actionLabel(for: s))
                             .font(AppFont.text(11, weight: .semibold))
                     }
                     .foregroundStyle(T.accentInk)
@@ -462,16 +487,55 @@ struct ListScreen: View {
         )
     }
 
+    private func metaLine(for s: LearnedSuggestion) -> String {
+        switch s.kind {
+        case .promote:
+            return "\(s.qty) · suggest as weekly staple"
+        case .qtyBump(let current):
+            return "\(current) → \(s.qty)"
+        }
+    }
+
+    private func actionIcon(for s: LearnedSuggestion) -> String {
+        switch s.kind {
+        case .promote: return "plus"
+        case .qtyBump: return "arrow.up"
+        }
+    }
+
+    private func actionLabel(for s: LearnedSuggestion) -> String {
+        switch s.kind {
+        case .promote: return "Add"
+        case .qtyBump: return "Bump"
+        }
+    }
+
     private func acceptSuggestion(_ s: LearnedSuggestion) {
-        let item = GroceryItem(
-            name: s.name,
-            aisle: s.aisle,
-            qty: [s.qty],
-            meals: [],
-            source: .staple
-        )
-        state.staples.append(item)
-        // Once it's a staple it'll filter out of activeSuggestions automatically.
+        switch s.kind {
+        case .promote:
+            let item = GroceryItem(
+                name: s.name,
+                aisle: s.aisle,
+                qty: [s.qty],
+                meals: [],
+                source: .staple
+            )
+            state.staples.append(item)
+        case .qtyBump:
+            // Find the matching staple and update its qty in place.
+            guard let idx = state.staples.firstIndex(where: { $0.name == s.name && $0.aisle == s.aisle })
+            else { return }
+            let existing = state.staples[idx]
+            state.staples[idx] = GroceryItem(
+                name: existing.name,
+                aisle: existing.aisle,
+                qty: [s.qty],
+                meals: existing.meals,
+                source: existing.source
+            )
+            // Suppress this suggestion from coming back next render — id matches
+            // the new staple's qty no longer differs.
+        }
     }
 }
 

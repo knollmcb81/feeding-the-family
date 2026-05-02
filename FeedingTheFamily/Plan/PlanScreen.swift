@@ -23,28 +23,43 @@ struct PlanScreen: View {
             FreshnessLane(week: viewedWeek, rules: state.rules)
                 .padding(.horizontal, 22)
                 .padding(.bottom, 6)
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    ForEach(Array(viewedWeek.enumerated()), id: \.element.id) { idx, day in
-                        DayCard(
-                            day: day,
-                            idx: idx,
-                            isToday: isViewingCurrent && idx == state.todayIdx,
-                            isPast: isViewingCurrent && idx < state.todayIdx,
-                            warning: warnings.first(where: { $0.dayIdx == idx }),
-                            quickNight: state.rules.quickNights.contains(day.day),
-                            confidence: Learning.confidence(for: day.mealId, ratings: state.ratings),
-                            trend: Learning.trend(for: day.mealId, ratings: state.ratings),
-                            unrated: isViewingCurrent && state.unratedDays.contains(day.day),
-                            onToggleLock: { toggleLock(idx: idx) },
-                            onSwap: { swapDayIdx = idx },
-                            onRate: { stars in rate(day: day, stars: stars) },
-                            onOpenRecipe: { openRecipeMealId = day.mealId }
-                        )
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(viewedWeek.enumerated()), id: \.element.id) { idx, day in
+                            DayCard(
+                                day: day,
+                                idx: idx,
+                                isToday: isViewingCurrent && idx == state.todayIdx,
+                                isPast: isViewingCurrent && idx < state.todayIdx,
+                                warning: warnings.first(where: { $0.dayIdx == idx }),
+                                quickNight: state.rules.quickNights.contains(day.day),
+                                confidence: Learning.confidence(for: day.mealId, ratings: state.ratings),
+                                trend: Learning.trend(for: day.mealId, ratings: state.ratings),
+                                unrated: isViewingCurrent && state.unratedDays.contains(day.day),
+                                onToggleLock: { toggleLock(idx: idx) },
+                                onSwap: { swapDayIdx = idx },
+                                onRate: { stars, note in rate(day: day, stars: stars, note: note) },
+                                onOpenRecipe: { openRecipeMealId = day.mealId }
+                            )
+                            .id(day.id)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 80) // leave room for floating Auto-draft button
+                }
+                .onAppear {
+                    // Land near today's card so the user doesn't have to scroll past
+                    // past meals on launch. Skip on next-week view.
+                    if isViewingCurrent, state.todayIdx < viewedWeek.count {
+                        let target = viewedWeek[max(0, state.todayIdx - 1)].id
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                proxy.scrollTo(target, anchor: .top)
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 80) // leave room for floating Auto-draft button
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottomTrailing) {
@@ -83,6 +98,7 @@ struct PlanScreen: View {
                 ratings: state.ratings,
                 customMeals: state.customMeals,
                 mealOverrides: state.mealOverrides,
+                dismissedMealIds: state.dismissedMealIds,
                 onSelect: { mealId in
                     var next = viewedWeek
                     next[wrap.idx].mealId = mealId
@@ -126,6 +142,7 @@ struct PlanScreen: View {
                     .background(Circle().fill(T.ink))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 22)
         .padding(.top, 4)
@@ -196,8 +213,9 @@ struct PlanScreen: View {
         setViewedWeek(next)
     }
 
-    private func rate(day: DayPlan, stars: Int) {
+    private func rate(day: DayPlan, stars: Int, note: String? = nil) {
         state.ratings[day.mealId, default: []].append(stars)
+        state.ratingFeedback[day.mealId, default: []].append(note ?? "")
         state.unratedDays.remove(day.day)
     }
 
@@ -222,7 +240,9 @@ struct PlanScreen: View {
                 week: viewedWeek,
                 rules: rules,
                 ratings: useScoring ? state.ratings : [:],
-                weekendDiscovery: useDiscovery
+                weekendDiscovery: useDiscovery,
+                customMeals: state.customMeals,
+                dismissed: state.dismissedMealIds
             )
             setViewedWeek(drafted)
         }

@@ -9,6 +9,7 @@ struct AutoDraftButton: View {
 
     var body: some View {
         Button(action: onTap) {
+            // (label below)
             HStack(spacing: 7) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 13, weight: .semibold))
@@ -27,5 +28,6 @@ struct AutoDraftButton: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Auto-draft this week's meals")
     }
 }

@@ -345,5 +345,6 @@ struct SnapScreen: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Snap a meal")
     }
 }

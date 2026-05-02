@@ -13,7 +13,7 @@ struct DayCard: View {
     let unrated: Bool
     let onToggleLock: () -> Void
     let onSwap: () -> Void
-    let onRate: (Int) -> Void
+    let onRate: (Int, String?) -> Void
     let onOpenRecipe: () -> Void
 
     private var needsRating: Bool { isPast && unrated }
@@ -194,6 +194,7 @@ struct DayCard: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(day.locked ? "Unlock \(day.day)'s meal" : "Lock \(day.day)'s meal")
 
                 Button(action: onSwap) {
                     VStack(spacing: 1) {
@@ -216,6 +217,7 @@ struct DayCard: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Swap \(day.day)'s meal")
             }
         }
     }

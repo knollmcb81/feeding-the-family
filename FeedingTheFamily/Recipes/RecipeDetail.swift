@@ -15,6 +15,8 @@ struct RecipeDetail: View {
     @State private var newStepText: String = ""
     @State private var editingStepIdx: Int? = nil
     @State private var stepDraft: String = ""
+    @State private var newTag: String = ""
+    @FocusState private var newTagFocused: Bool
 
     private let baseServings = 4
 
@@ -34,6 +36,7 @@ struct RecipeDetail: View {
                     if editing {
                         metaEditor
                     }
+                    feedbackSummary
                     ingredientsSection
                     Spacer().frame(height: 22)
                     stepsSection
@@ -150,6 +153,7 @@ struct RecipeDetail: View {
 
     private func rateMeal(_ stars: Int) {
         state.ratings[mealId, default: []].append(stars)
+        state.ratingFeedback[mealId, default: []].append("")
         // If this rating belongs to a past planned day for this meal, clear that prompt.
         for past in state.week.prefix(state.todayIdx) where past.mealId == mealId {
             state.unratedDays.remove(past.day)
@@ -298,25 +302,25 @@ struct RecipeDetail: View {
             }
             .tint(T.accent2)
 
+            tagsEditor
+
             HStack(spacing: 8) {
-                if isCustomMeal {
-                    Button {
-                        deleteCustomMeal()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 10, weight: .bold))
-                            Text(isUsedThisWeek ? "Delete (in use)" : "Delete recipe")
-                                .font(AppFont.text(11, weight: .semibold))
-                        }
-                        .foregroundStyle(isUsedThisWeek ? T.ink3 : T.warn)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Capsule().strokeBorder(isUsedThisWeek ? T.rule : T.warn.opacity(0.6), lineWidth: 1))
+                Button {
+                    removeMeal()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(deleteLabel)
+                            .font(AppFont.text(11, weight: .semibold))
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isUsedThisWeek)
+                    .foregroundStyle(isUsedThisWeek ? T.ink3 : T.warn)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().strokeBorder(isUsedThisWeek ? T.rule : T.warn.opacity(0.6), lineWidth: 1))
                 }
+                .buttonStyle(.plain)
+                .disabled(isUsedThisWeek)
                 Spacer()
                 if hasOverride {
                     Button {
@@ -704,10 +708,124 @@ struct RecipeDetail: View {
         state.mealOverrides[mealId] = m
     }
 
-    private func deleteCustomMeal() {
+    /// Shows any low-rating notes the user left so the next time they're
+    /// thinking about cooking this, the past pain shows up at a glance.
+    @ViewBuilder
+    private var feedbackSummary: some View {
+        let notes = (state.ratingFeedback[mealId] ?? []).filter { !$0.isEmpty }
+        if !notes.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.bubble")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(T.warn)
+                    Text("LAST TIME")
+                        .font(AppFont.text(10.5, weight: .bold))
+                        .kerning(1.2)
+                        .foregroundStyle(T.warn)
+                }
+                ForEach(Array(notes.suffix(3).enumerated()), id: \.offset) { _, note in
+                    Text("· \(note)")
+                        .font(AppFont.text(12))
+                        .foregroundStyle(T.ink2)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(T.warn.opacity(0.08))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(T.warn.opacity(0.3), lineWidth: 1))
+            )
+            .padding(.bottom, 14)
+        }
+    }
+
+    private var tagsEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TAGS")
+                .font(AppFont.text(10, weight: .bold))
+                .kerning(0.5)
+                .foregroundStyle(T.ink3)
+            FlowLayout(spacing: 6, rowSpacing: 6) {
+                ForEach(meal.tags, id: \.self) { tag in
+                    Button {
+                        removeTag(tag)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(tag)
+                                .font(AppFont.text(11, weight: .semibold))
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .foregroundStyle(T.ink2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(T.paperDeep))
+                    }
+                    .buttonStyle(.plain)
+                }
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(T.ink3)
+                    TextField("add", text: $newTag)
+                        .font(AppFont.text(11, weight: .semibold))
+                        .foregroundStyle(T.ink)
+                        .tint(T.ink)
+                        .focused($newTagFocused)
+                        .submitLabel(.done)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .frame(minWidth: 50)
+                        .onSubmit { commitNewTag() }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(T.card)
+                        .overlay(Capsule().strokeBorder(T.rule, style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                )
+            }
+            Text("Tap a tag to remove. Common tags: kid, quick, weeknight, weekend, asian, family, crockpot.")
+                .font(AppFont.text(10.5))
+                .foregroundStyle(T.ink3)
+        }
+        .padding(.top, 4)
+    }
+
+    private func commitNewTag() {
+        let t = newTag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !t.isEmpty else { return }
+        var m = ensureOverride()
+        if !m.tags.contains(t) { m.tags.append(t) }
+        state.mealOverrides[mealId] = m
+        newTag = ""
+        newTagFocused = true
+    }
+
+    private func removeTag(_ tag: String) {
+        var m = ensureOverride()
+        m.tags.removeAll { $0 == tag }
+        state.mealOverrides[mealId] = m
+    }
+
+    private var deleteLabel: String {
+        if isUsedThisWeek { return "Delete (in use)" }
+        return isCustomMeal ? "Delete recipe" : "Hide from library"
+    }
+
+    /// Custom meals get hard-deleted. Seeded meals get soft-hidden via dismissedMealIds
+    /// — they still exist in the seed but won't show up in lists, swap, or autoDraft.
+    private func removeMeal() {
         guard !isUsedThisWeek else { return }
-        state.customMeals.removeAll { $0.id == mealId }
-        state.mealOverrides[mealId] = nil
+        if isCustomMeal {
+            state.customMeals.removeAll { $0.id == mealId }
+            state.mealOverrides[mealId] = nil
+        } else {
+            state.dismissedMealIds.insert(mealId)
+        }
         dismiss()
     }
 

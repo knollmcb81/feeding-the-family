@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct ImportRecipeSheet: View {
     @Environment(AppState.self) private var state
@@ -6,7 +7,17 @@ struct ImportRecipeSheet: View {
     /// Set after a successful import — parent uses it to open RecipeDetail.
     @Binding var importedMealId: String?
 
+    enum Mode: String, CaseIterable, Identifiable {
+        case url, photo
+        var id: String { rawValue }
+        var label: String { self == .url ? "URL" : "Photo" }
+    }
+
+    @State private var mode: Mode = .url
     @State private var url: String = ""
+    @State private var pickerItem: PhotosPickerItem? = nil
+    @State private var pickedImage: Data? = nil
+    @State private var pickedThumb: Image? = nil
     @State private var importing: Bool = false
     @State private var errorMsg: String? = nil
     @FocusState private var urlFocused: Bool
@@ -17,7 +28,12 @@ struct ImportRecipeSheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     intro
-                    urlField
+                    modeToggle
+                    if mode == .url {
+                        urlField
+                    } else {
+                        photoField
+                    }
                     if let msg = errorMsg {
                         errorBanner(msg)
                     }
@@ -30,7 +46,7 @@ struct ImportRecipeSheet: View {
             actionBar
         }
         .background(T.paper)
-        .onAppear { urlFocused = true }
+        .onAppear { if mode == .url { urlFocused = true } }
     }
 
     // ── Header ──────────────────────────────
@@ -63,10 +79,107 @@ struct ImportRecipeSheet: View {
     }
 
     private var intro: some View {
-        Text("Paste any recipe URL — Claude reads the page and turns it into a recipe you can edit, add to a week, or pull onto your grocery list.")
+        Text("Paste a URL or pick a photo of any recipe — Claude turns it into one you can edit, add to a week, or pull onto your grocery list.")
             .font(AppFont.text(13))
             .foregroundStyle(T.ink2)
             .lineSpacing(2)
+    }
+
+    private var modeToggle: some View {
+        HStack(spacing: 0) {
+            ForEach(Mode.allCases) { m in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        mode = m
+                        errorMsg = nil
+                    }
+                    if m == .url { urlFocused = true }
+                } label: {
+                    Text(m.label)
+                        .font(AppFont.text(13, weight: .semibold))
+                        .foregroundStyle(mode == m ? T.paper : T.ink2)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(mode == m ? T.ink : Color.clear)
+                        )
+                        .padding(2)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(T.paperDeep)
+        )
+    }
+
+    private var photoField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("RECIPE PHOTO")
+                .font(AppFont.text(11, weight: .bold))
+                .kerning(1.2)
+                .foregroundStyle(T.ink3)
+            PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
+                ZStack {
+                    if let img = pickedThumb {
+                        img
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: 220)
+                            .clipped()
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "photo.badge.plus")
+                                .font(.system(size: 28, weight: .light))
+                                .foregroundStyle(T.ink3)
+                            Text("Tap to pick a photo")
+                                .font(AppFont.text(13, weight: .semibold))
+                                .foregroundStyle(T.ink2)
+                            Text("Cookbook page, magazine, screenshot")
+                                .font(AppFont.text(11))
+                                .foregroundStyle(T.ink3)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 160)
+                        .padding(.vertical, 22)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(T.paperDeep)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(T.rule, style: StrokeStyle(lineWidth: 1, dash: pickedThumb == nil ? [4, 3] : []))
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .onChange(of: pickerItem) { _, newItem in
+                guard let newItem else { return }
+                Task {
+                    if let data = try? await newItem.loadTransferable(type: Data.self) {
+                        pickedImage = data
+                        if let ui = UIImage(data: data) {
+                            pickedThumb = Image(uiImage: ui)
+                        }
+                    }
+                }
+            }
+            if pickedThumb != nil {
+                Button {
+                    pickedImage = nil
+                    pickedThumb = nil
+                    pickerItem = nil
+                } label: {
+                    Text("Pick a different photo")
+                        .font(AppFont.text(11, weight: .semibold))
+                        .foregroundStyle(T.ink3)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     // ── URL field ───────────────────────────
@@ -176,26 +289,38 @@ struct ImportRecipeSheet: View {
     }
 
     private var canImport: Bool {
-        !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !state.anthropicApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let keyOK = !state.anthropicApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        switch mode {
+        case .url:   return keyOK && !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .photo: return keyOK && pickedImage != nil
+        }
     }
 
     // ── Action ─────────────────────────────
 
     private func runImport() {
         guard canImport else {
-            if state.anthropicApiKey.isEmpty {
+            if state.anthropicApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 errorMsg = "Add your Anthropic API key in Settings → AI Vision first. Recipe import uses the same key."
             }
             return
         }
         importing = true
         errorMsg = nil
-        let urlString = url
         let key = state.anthropicApiKey
+        let currentMode = mode
+        let urlString = url
+        let imageData = pickedImage
         Task {
             do {
-                let meal = try await RecipeImporter.importFrom(urlString: urlString, apiKey: key)
+                let meal: Meal
+                switch currentMode {
+                case .url:
+                    meal = try await RecipeImporter.importFrom(urlString: urlString, apiKey: key)
+                case .photo:
+                    guard let data = imageData else { throw RecipeImporter.ImportError.noContent }
+                    meal = try await RecipeImporter.importFromPhoto(imageData: data, apiKey: key)
+                }
                 await MainActor.run {
                     state.customMeals.removeAll { $0.id == meal.id }
                     state.customMeals.append(meal)

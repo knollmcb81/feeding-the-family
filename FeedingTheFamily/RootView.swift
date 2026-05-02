@@ -39,6 +39,10 @@ final class AppState {
         "mama-pizza":   [5, 5, 5, 4, 5],
         "pork-loin":    [4, 4, 5],
     ]
+    /// Parallel to `ratings` — for each rating the user gave, an optional note
+    /// of what worked or didn't. Empty string means "no context provided."
+    /// Populated from the expanded RatingPrompt on ≤2★ ratings.
+    var ratingFeedback: [String: [String]] = [:]
 
     // Past day labels (Mon, Tue, ...) the user hasn't rated yet — drives the rating prompt.
     /// Defaults to every past day this week. As the user rates, days are removed.
@@ -89,6 +93,10 @@ final class AppState {
     /// Forward-planned next week. nil until the user taps the forward arrow on Plan.
     /// On Monday rollover this gets promoted to `week` (see Persistence.apply).
     var forwardPlannedWeek: [DayPlan]? = nil
+
+    /// Meal IDs the user hid from their library. Filtered out everywhere meals
+    /// are listed (Recipes, Auto-draft, Swap). Reversible by clearing the set.
+    var dismissedMealIds: Set<String> = []
 }
 
 struct RootView: View {

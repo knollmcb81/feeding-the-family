@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Full-bleed camera viewfinder. Shows a live AVFoundation preview when the user
 /// has granted access; falls back to a dark mock with a hint on simulator / denied.
@@ -11,6 +12,9 @@ struct CameraViewfinder: View {
 
     @State private var camera = CameraSession()
     @State private var capturing = false
+    @State private var showPicker = false
+    @State private var pickerItem: PhotosPickerItem? = nil
+    @State private var flashOpacity: Double = 0
     private static let bg = Color(hex: 0x16110d)
 
     var body: some View {
@@ -41,6 +45,12 @@ struct CameraViewfinder: View {
                 Spacer()
                 bottomBar
             }
+
+            // Brief white flash on capture, like a real camera.
+            Color.white
+                .opacity(flashOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
         .preferredColorScheme(.dark)
         .task {
@@ -157,21 +167,36 @@ struct CameraViewfinder: View {
 
     private var bottomBar: some View {
         HStack(alignment: .center) {
-            // Gallery picker (decorative for v0)
-            Button {} label: {
+            // Photo library picker — pick an existing photo to analyze.
+            PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(T.paper.opacity(0.7))
+                    .foregroundStyle(T.paper.opacity(0.85))
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
+                    .background(Circle().fill(Color.white.opacity(0.12)))
             }
-            .buttonStyle(.plain)
+            .onChange(of: pickerItem) { _, newItem in
+                guard let newItem else { return }
+                Task {
+                    if let data = try? await newItem.loadTransferable(type: Data.self) {
+                        onShutter(data)
+                    }
+                    pickerItem = nil
+                }
+            }
             Spacer()
 
             // Shutter
             Button {
                 guard !capturing else { return }
                 capturing = true
+                // Quick flash + haptic on capture.
+                withAnimation(.easeOut(duration: 0.08)) { flashOpacity = 0.85 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeIn(duration: 0.18)) { flashOpacity = 0 }
+                }
+                let haptic = UIImpactFeedbackGenerator(style: .medium)
+                haptic.impactOccurred()
                 Task {
                     let data = await camera.capturePhoto()
                     capturing = false
