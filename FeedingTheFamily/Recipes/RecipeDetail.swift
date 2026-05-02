@@ -17,8 +17,12 @@ struct RecipeDetail: View {
     @State private var stepDraft: String = ""
     @State private var newTag: String = ""
     @FocusState private var newTagFocused: Bool
+    @State private var idleTimer: Timer? = nil
 
     private let baseServings = 4
+    /// Cap how long we hold the screen awake. If a recipe is open this long,
+    /// nobody's actively cooking — let the phone sleep on its own.
+    private let stayAwakeSeconds: TimeInterval = 30 * 60
 
     private var meal: Meal { Planner.activeMeal(id: mealId, overrides: state.mealOverrides, custom: state.customMeals) }
     private var protein: Protein { Planner.protein(for: meal) }
@@ -48,6 +52,18 @@ struct RecipeDetail: View {
             actionBar
         }
         .background(T.paper)
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+            idleTimer?.invalidate()
+            idleTimer = Timer.scheduledTimer(withTimeInterval: stayAwakeSeconds, repeats: false) { _ in
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
+        }
+        .onDisappear {
+            idleTimer?.invalidate()
+            idleTimer = nil
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 
     // ── Footer actions ──────────────────────────────
