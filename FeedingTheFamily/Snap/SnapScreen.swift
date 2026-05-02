@@ -123,18 +123,24 @@ struct SnapScreen: View {
         let key = state.anthropicApiKey.trimmingCharacters(in: .whitespaces)
 
         if let photo = capturedPhoto {
-            guard !key.isEmpty else {
+            let usingBackend = ClaudeRouter.usingBackend(state.backendBaseURL)
+            if !usingBackend && key.isEmpty {
                 await MainActor.run {
-                    visionError = "Real food detection needs an Anthropic API key. "
+                    visionError = "Real food detection needs an Anthropic API key (or a backend URL). "
                         + "Open the Plan tab → gear icon → AI Vision and paste a key (sk-ant-…). "
-                        + "Without a key, taps cycle through built-in demo fixtures."
+                        + "Without one, taps cycle through built-in demo fixtures."
                     phase = .log
                     capturedPhoto = nil
                 }
                 return
             }
             do {
-                let fixture = try await AnthropicVision.classify(imageData: photo, apiKey: key)
+                let fixture = try await AnthropicVision.classify(
+                    imageData: photo,
+                    apiKey: key,
+                    backendBaseURL: state.backendBaseURL,
+                    backendAuthToken: state.backendAuthToken
+                )
                 await MainActor.run {
                     pendingFixture = fixture
                     phase = .log

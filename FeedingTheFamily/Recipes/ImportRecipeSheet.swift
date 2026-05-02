@@ -358,12 +358,24 @@ struct ImportRecipeSheet: View {
                 let meal: Meal
                 switch currentMode {
                 case .url:
-                    meal = try await RecipeImporter.importFrom(urlString: urlString, apiKey: key)
+                    meal = try await RecipeImporter.importFrom(
+                        urlString: urlString, apiKey: key,
+                        backendBaseURL: state.backendBaseURL,
+                        backendAuthToken: state.backendAuthToken
+                    )
                 case .photo:
                     guard let data = imageData else { throw RecipeImporter.ImportError.noContent }
-                    meal = try await RecipeImporter.importFromPhoto(imageData: data, apiKey: key)
+                    meal = try await RecipeImporter.importFromPhoto(
+                        imageData: data, apiKey: key,
+                        backendBaseURL: state.backendBaseURL,
+                        backendAuthToken: state.backendAuthToken
+                    )
                 case .text:
-                    meal = try await RecipeImporter.importFromText(text: pastedText, apiKey: key)
+                    meal = try await RecipeImporter.importFromText(
+                        text: pastedText, apiKey: key,
+                        backendBaseURL: state.backendBaseURL,
+                        backendAuthToken: state.backendAuthToken
+                    )
                 }
                 await MainActor.run {
                     state.customMeals.removeAll { $0.id == meal.id }

@@ -114,6 +114,8 @@ struct SettingsSheet: View {
                                 .textInputAutocapitalization(.never)
                             // Always-visible status so the user can see what the field has.
                             keyStatusLine
+                            // Optional backend proxy.
+                            backendFields
                             // Connection test button.
                             HStack(spacing: 8) {
                                 Button {
@@ -210,6 +212,54 @@ struct SettingsSheet: View {
                         .foregroundStyle(T.ink)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var backendFields: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("OR USE A BACKEND")
+                .font(AppFont.text(10, weight: .bold))
+                .kerning(1.2)
+                .foregroundStyle(T.ink3)
+                .padding(.top, 6)
+            TextField("https://your-proxy.example.com", text: Binding(
+                get: { state.backendBaseURL },
+                set: { state.backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            ))
+            .font(AppFont.mono(11))
+            .foregroundStyle(T.ink)
+            .tint(T.ink)
+            .keyboardType(.URL)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(T.paperDeep)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(T.rule, lineWidth: 1))
+            )
+            SecureField("Bearer token", text: Binding(
+                get: { state.backendAuthToken },
+                set: { state.backendAuthToken = $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            ))
+            .font(AppFont.mono(11))
+            .foregroundStyle(T.ink)
+            .tint(T.ink)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(T.paperDeep)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(T.rule, lineWidth: 1))
+            )
+            Text("When set, all Claude calls route through your proxy with the bearer token. The proxy holds the real Anthropic key. See backend/ in the repo for a Vercel-ready reference.")
+                .font(AppFont.text(10.5))
+                .foregroundStyle(T.ink3)
+                .lineSpacing(2)
         }
     }
 
@@ -400,7 +450,11 @@ struct SettingsSheet: View {
         testing = true
         testResult = nil
         Task {
-            let result = await AnthropicVision.testKey(state.anthropicApiKey)
+            let result = await AnthropicVision.testKey(
+                state.anthropicApiKey,
+                backendBaseURL: state.backendBaseURL,
+                backendAuthToken: state.backendAuthToken
+            )
             await MainActor.run {
                 testing = false
                 switch result {

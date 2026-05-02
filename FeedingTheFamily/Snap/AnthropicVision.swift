@@ -25,11 +25,18 @@ enum AnthropicRecipe {
     private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     private static let model = "claude-sonnet-4-6"
 
-    static func generate(from inspiration: SnapEntry, rules: Rules, apiKey: String) async throws -> Meal {
+    static func generate(
+        from inspiration: SnapEntry,
+        rules: Rules,
+        apiKey: String,
+        backendBaseURL: String = "",
+        backendAuthToken: String = ""
+    ) async throws -> Meal {
+        let usingBackend = ClaudeRouter.usingBackend(backendBaseURL)
         let key = apiKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        guard !key.isEmpty else { throw RecipeError.missingKey }
+        if !usingBackend && key.isEmpty { throw RecipeError.missingKey }
 
         let itemsList = inspiration.items.map { "- \($0.name) (\($0.qty), \($0.kcal) kcal)" }.joined(separator: "\n")
         let avoidList = rules.avoidIngredients.joined(separator: ", ")
@@ -74,11 +81,14 @@ enum AnthropicRecipe {
             "max_tokens": 1500,
             "messages": [["role": "user", "content": prompt]]
         ]
-        var req = URLRequest(url: endpoint)
+        let routed = ClaudeRouter.request(
+            anthropicKey: key,
+            backendBaseURL: backendBaseURL,
+            backendAuthToken: backendAuthToken
+        )
+        var req = URLRequest(url: routed.url)
         req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.setValue(key, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        for (k, v) in routed.headers { req.setValue(v, forHTTPHeaderField: k) }
         req.timeoutInterval = 30
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -150,22 +160,27 @@ enum AnthropicRecipe {
 enum AnthropicVision {
     /// Lightweight key-validity check. Sends 1 token and inspects the status code.
     /// 200 = good, 401 = bad key, anything else = a useful error to show the user.
-    static func testKey(_ apiKey: String) async -> Result<Void, VisionError> {
+    /// When a backend URL is set, this also validates the backend's bearer token.
+    static func testKey(_ apiKey: String, backendBaseURL: String = "", backendAuthToken: String = "") async -> Result<Void, VisionError> {
+        let usingBackend = ClaudeRouter.usingBackend(backendBaseURL)
         let key = apiKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        guard !key.isEmpty else { return .failure(.missingKey) }
+        if !usingBackend && key.isEmpty { return .failure(.missingKey) }
 
         let body: [String: Any] = [
             "model": model,
             "max_tokens": 1,
             "messages": [["role": "user", "content": "ok"]],
         ]
-        var req = URLRequest(url: endpoint)
+        let routed = ClaudeRouter.request(
+            anthropicKey: key,
+            backendBaseURL: backendBaseURL,
+            backendAuthToken: backendAuthToken
+        )
+        var req = URLRequest(url: routed.url)
         req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.setValue(key, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        for (k, v) in routed.headers { req.setValue(v, forHTTPHeaderField: k) }
         req.timeoutInterval = 15
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
@@ -201,13 +216,19 @@ enum AnthropicVision {
     private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     private static let model = "claude-sonnet-4-6"
 
-    static func classify(imageData: Data, apiKey: String) async throws -> SnapFixture {
-        // Aggressively strip whitespace, newlines, and any stray quote chars that
-        // can sneak in from clipboards. A single \n breaks the HTTP header.
+    static func classify(
+        imageData: Data,
+        apiKey: String,
+        backendBaseURL: String = "",
+        backendAuthToken: String = ""
+    ) async throws -> SnapFixture {
+        // When using the backend, the auth token replaces the Anthropic key —
+        // the user might not have a key at all, and that's fine.
+        let usingBackend = ClaudeRouter.usingBackend(backendBaseURL)
         let key = apiKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        guard !key.isEmpty else { throw VisionError.missingKey }
+        if !usingBackend && key.isEmpty { throw VisionError.missingKey }
 
         // Resize so we don't upload 12MP photos. Vision models tolerate ~1024px well.
         let resized = imageData.resizedJPEG(maxDimension: 1024) ?? imageData
@@ -235,11 +256,14 @@ enum AnthropicVision {
             ]]
         ]
 
-        var req = URLRequest(url: endpoint)
+        let routed = ClaudeRouter.request(
+            anthropicKey: key,
+            backendBaseURL: backendBaseURL,
+            backendAuthToken: backendAuthToken
+        )
+        var req = URLRequest(url: routed.url)
         req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.setValue(key, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        for (k, v) in routed.headers { req.setValue(v, forHTTPHeaderField: k) }
         req.timeoutInterval = 30
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -258,7 +282,6 @@ enum AnthropicVision {
             throw VisionError.http(http.statusCode, msg)
         }
 
-        // Anthropic shape: { content: [{ type: "text", text: "..." }] }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = json["content"] as? [[String: Any]],
               let firstText = content.first(where: { ($0["type"] as? String) == "text" }),

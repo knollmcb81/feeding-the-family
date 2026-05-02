@@ -218,12 +218,18 @@ struct InspirationDetail: View {
     private func generateRecipe() {
         generating = true
         let key = state.anthropicApiKey
+        let backendURL = state.backendBaseURL
+        let backendToken = state.backendAuthToken
+        let usingBackend = ClaudeRouter.usingBackend(backendURL)
         Task {
             let meal: Meal
-            if !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if usingBackend || !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 do {
                     meal = try await AnthropicRecipe.generate(
-                        from: entry, rules: state.rules, apiKey: key
+                        from: entry, rules: state.rules,
+                        apiKey: key,
+                        backendBaseURL: backendURL,
+                        backendAuthToken: backendToken
                     )
                 } catch {
                     // Real call failed — fall back so the user always gets something.

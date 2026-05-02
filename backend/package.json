@@ -1,0 +1,10 @@
+{
+  "name": "feeding-the-family-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vercel-style proxy that fronts Anthropic's Messages API for the Feeding the Family iOS app.",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}

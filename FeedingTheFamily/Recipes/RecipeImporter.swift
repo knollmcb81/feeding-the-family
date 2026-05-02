@@ -32,11 +32,17 @@ enum RecipeImporter {
     /// Same shape as `importFrom(urlString:)` but takes raw text — useful for
     /// paywalled recipes (paste the body), email recipes friends sent you, or
     /// hand-typed family recipes.
-    static func importFromText(text: String, apiKey: String) async throws -> Meal {
+    static func importFromText(
+        text: String,
+        apiKey: String,
+        backendBaseURL: String = "",
+        backendAuthToken: String = ""
+    ) async throws -> Meal {
+        let usingBackend = ClaudeRouter.usingBackend(backendBaseURL)
         let trimmedKey = apiKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        guard !trimmedKey.isEmpty else { throw ImportError.missingKey }
+        if !usingBackend && trimmedKey.isEmpty { throw ImportError.missingKey }
 
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { throw ImportError.noContent }
@@ -77,11 +83,14 @@ enum RecipeImporter {
             "max_tokens": 2000,
             "messages": [["role": "user", "content": prompt]]
         ]
-        var req = URLRequest(url: endpoint)
+        let routed = ClaudeRouter.request(
+            anthropicKey: trimmedKey,
+            backendBaseURL: backendBaseURL,
+            backendAuthToken: backendAuthToken
+        )
+        var req = URLRequest(url: routed.url)
         req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.setValue(trimmedKey, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        for (k, v) in routed.headers { req.setValue(v, forHTTPHeaderField: k) }
         req.timeoutInterval = 30
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -109,11 +118,17 @@ enum RecipeImporter {
     /// Same shape as `importFrom(urlString:)` but takes a photo. The photo is
     /// resized to ~1024px and sent to Claude with a recipe-extraction prompt.
     /// Works for cookbook pages, magazine recipes, screenshots, handwritten cards.
-    static func importFromPhoto(imageData: Data, apiKey: String) async throws -> Meal {
+    static func importFromPhoto(
+        imageData: Data,
+        apiKey: String,
+        backendBaseURL: String = "",
+        backendAuthToken: String = ""
+    ) async throws -> Meal {
+        let usingBackend = ClaudeRouter.usingBackend(backendBaseURL)
         let trimmedKey = apiKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        guard !trimmedKey.isEmpty else { throw ImportError.missingKey }
+        if !usingBackend && trimmedKey.isEmpty { throw ImportError.missingKey }
 
         let resized = imageData.resizedJPEG(maxDimension: 1024) ?? imageData
         let base64 = resized.base64EncodedString()
@@ -162,11 +177,14 @@ enum RecipeImporter {
                 ]
             ]]
         ]
-        var req = URLRequest(url: endpoint)
+        let routed = ClaudeRouter.request(
+            anthropicKey: trimmedKey,
+            backendBaseURL: backendBaseURL,
+            backendAuthToken: backendAuthToken
+        )
+        var req = URLRequest(url: routed.url)
         req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.setValue(trimmedKey, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        for (k, v) in routed.headers { req.setValue(v, forHTTPHeaderField: k) }
         req.timeoutInterval = 30
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -191,11 +209,17 @@ enum RecipeImporter {
         return try parse(text, mealId: "photo-\(UUID().uuidString.prefix(8))")
     }
 
-    static func importFrom(urlString: String, apiKey: String) async throws -> Meal {
+    static func importFrom(
+        urlString: String,
+        apiKey: String,
+        backendBaseURL: String = "",
+        backendAuthToken: String = ""
+    ) async throws -> Meal {
+        let usingBackend = ClaudeRouter.usingBackend(backendBaseURL)
         let trimmedKey = apiKey
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        guard !trimmedKey.isEmpty else { throw ImportError.missingKey }
+        if !usingBackend && trimmedKey.isEmpty { throw ImportError.missingKey }
 
         // Allow user to paste with or without scheme; auto-prepend https:// if needed.
         var raw = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -257,11 +281,14 @@ enum RecipeImporter {
             "max_tokens": 2000,
             "messages": [["role": "user", "content": prompt]]
         ]
-        var apiReq = URLRequest(url: endpoint)
+        let routed = ClaudeRouter.request(
+            anthropicKey: trimmedKey,
+            backendBaseURL: backendBaseURL,
+            backendAuthToken: backendAuthToken
+        )
+        var apiReq = URLRequest(url: routed.url)
         apiReq.httpMethod = "POST"
-        apiReq.setValue("application/json", forHTTPHeaderField: "content-type")
-        apiReq.setValue(trimmedKey, forHTTPHeaderField: "x-api-key")
-        apiReq.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        for (k, v) in routed.headers { apiReq.setValue(v, forHTTPHeaderField: k) }
         apiReq.timeoutInterval = 30
         apiReq.httpBody = try JSONSerialization.data(withJSONObject: body)
 

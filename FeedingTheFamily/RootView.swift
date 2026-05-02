@@ -117,6 +117,13 @@ final class AppState {
 
     /// Opt-in daily 8 PM "rate dinner" reminder. Set from Settings toggle.
     var nightlyReminderEnabled: Bool = false
+
+    /// Optional backend proxy. When set, all Claude calls route through this
+    /// URL instead of api.anthropic.com directly — auth via Bearer token. The
+    /// backend is responsible for holding the actual Anthropic key. See
+    /// `backend/` in the repo for a Vercel-ready reference implementation.
+    var backendBaseURL: String = ""
+    var backendAuthToken: String = ""
 }
 
 struct RootView: View {
