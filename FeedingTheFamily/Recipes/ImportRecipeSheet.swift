@@ -8,19 +8,27 @@ struct ImportRecipeSheet: View {
     @Binding var importedMealId: String?
 
     enum Mode: String, CaseIterable, Identifiable {
-        case url, photo
+        case url, photo, text
         var id: String { rawValue }
-        var label: String { self == .url ? "URL" : "Photo" }
+        var label: String {
+            switch self {
+            case .url:   return "URL"
+            case .photo: return "Photo"
+            case .text:  return "Text"
+            }
+        }
     }
 
     @State private var mode: Mode = .url
     @State private var url: String = ""
+    @State private var pastedText: String = ""
     @State private var pickerItem: PhotosPickerItem? = nil
     @State private var pickedImage: Data? = nil
     @State private var pickedThumb: Image? = nil
     @State private var importing: Bool = false
     @State private var errorMsg: String? = nil
     @FocusState private var urlFocused: Bool
+    @FocusState private var textFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,10 +37,10 @@ struct ImportRecipeSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     intro
                     modeToggle
-                    if mode == .url {
-                        urlField
-                    } else {
-                        photoField
+                    switch mode {
+                    case .url:   urlField
+                    case .photo: photoField
+                    case .text:  textField
                     }
                     if let msg = errorMsg {
                         errorBanner(msg)
@@ -95,6 +103,7 @@ struct ImportRecipeSheet: View {
                         errorMsg = nil
                     }
                     if m == .url { urlFocused = true }
+                    if m == .text { textFocused = true }
                 } label: {
                     Text(m.label)
                         .font(AppFont.text(13, weight: .semibold))
@@ -114,6 +123,37 @@ struct ImportRecipeSheet: View {
             RoundedRectangle(cornerRadius: 9)
                 .fill(T.paperDeep)
         )
+    }
+
+    private var textField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("RECIPE TEXT")
+                .font(AppFont.text(11, weight: .bold))
+                .kerning(1.2)
+                .foregroundStyle(T.ink3)
+            TextEditor(text: $pastedText)
+                .font(AppFont.text(13))
+                .foregroundStyle(T.ink)
+                .tint(T.ink)
+                .focused($textFocused)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 200, maxHeight: 320)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(T.paperDeep)
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(T.rule, lineWidth: 1))
+                )
+                .overlay(alignment: .topLeading) {
+                    if pastedText.isEmpty {
+                        Text("Paste recipe text here…\n\ne.g. ingredient list + steps from a paywalled NYT Cooking page, an email from a friend, or a hand-typed family recipe.")
+                            .font(AppFont.text(12))
+                            .foregroundStyle(T.ink3)
+                            .padding(14)
+                            .allowsHitTesting(false)
+                    }
+                }
+        }
     }
 
     private var photoField: some View {
@@ -294,6 +334,7 @@ struct ImportRecipeSheet: View {
         switch mode {
         case .url:   return keyOK && !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .photo: return keyOK && pickedImage != nil
+        case .text:  return keyOK && !pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
@@ -321,6 +362,8 @@ struct ImportRecipeSheet: View {
                 case .photo:
                     guard let data = imageData else { throw RecipeImporter.ImportError.noContent }
                     meal = try await RecipeImporter.importFromPhoto(imageData: data, apiKey: key)
+                case .text:
+                    meal = try await RecipeImporter.importFromText(text: pastedText, apiKey: key)
                 }
                 await MainActor.run {
                     state.customMeals.removeAll { $0.id == meal.id }

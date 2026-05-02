@@ -56,6 +56,10 @@ struct SettingsSheet: View {
                         topUpDayRow
                     }
 
+                    section("REMINDERS") {
+                        nightlyReminderRow
+                    }
+
                     section("DAILY NUTRITION GOALS") {
                         sliderRow(
                             label: "Calories",
@@ -206,6 +210,48 @@ struct SettingsSheet: View {
                         .foregroundStyle(T.ink)
                 }
             }
+        }
+    }
+
+    private var nightlyReminderRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: Binding(
+                get: { state.nightlyReminderEnabled },
+                set: { newValue in
+                    if newValue {
+                        Task {
+                            let granted = await Notifications.requestPermission()
+                            await MainActor.run {
+                                if granted {
+                                    state.nightlyReminderEnabled = true
+                                    Notifications.scheduleNightlyRating()
+                                } else {
+                                    // User denied — keep toggle off, send them to Settings.
+                                    state.nightlyReminderEnabled = false
+                                }
+                            }
+                        }
+                    } else {
+                        state.nightlyReminderEnabled = false
+                        Notifications.cancelNightlyRating()
+                    }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Nightly rating reminder")
+                        .font(AppFont.text(14))
+                        .foregroundStyle(T.ink)
+                    Text("8 PM daily — \"How was dinner?\"")
+                        .font(AppFont.text(11))
+                        .foregroundStyle(T.ink3)
+                }
+            }
+            .tint(T.accent2)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(T.ruleSoft).frame(height: 1).padding(.horizontal, 22)
         }
     }
 

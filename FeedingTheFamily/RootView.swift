@@ -114,6 +114,9 @@ final class AppState {
     /// Meal IDs the user hid from their library. Filtered out everywhere meals
     /// are listed (Recipes, Auto-draft, Swap). Reversible by clearing the set.
     var dismissedMealIds: Set<String> = []
+
+    /// Opt-in daily 8 PM "rate dinner" reminder. Set from Settings toggle.
+    var nightlyReminderEnabled: Bool = false
 }
 
 struct RootView: View {
@@ -148,6 +151,12 @@ struct RootView: View {
             // Hydrate from disk once on launch.
             if let saved = Persistence.load() {
                 state.apply(saved)
+            }
+            // Re-schedule the nightly reminder if the user opted in. (A reinstall
+            // or fresh device wipe drops scheduled notifications, so we re-add
+            // them on every launch — UNUserNotificationCenter dedups by id.)
+            if state.nightlyReminderEnabled {
+                Notifications.scheduleNightlyRating()
             }
         }
         .onChange(of: scenePhase) { _, phase in

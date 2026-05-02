@@ -26,6 +26,7 @@ struct AppSnapshot: Codable {
     var forwardPlannedWeek: [DayPlan]? = nil
     var dismissedMealIds: Set<String> = []
     var ratingFeedback: [String: [String]] = [:]
+    var nightlyReminderEnabled: Bool = false
 }
 
 enum Persistence {
@@ -93,7 +94,8 @@ extension AppState {
             nutritionGoal: nutritionGoal,
             forwardPlannedWeek: forwardPlannedWeek,
             dismissedMealIds: dismissedMealIds,
-            ratingFeedback: ratingFeedback
+            ratingFeedback: ratingFeedback,
+            nightlyReminderEnabled: nightlyReminderEnabled
         )
     }
 
@@ -170,6 +172,7 @@ extension AppState {
         self.nutritionGoal = snapshot.nutritionGoal
         self.dismissedMealIds = snapshot.dismissedMealIds
         self.ratingFeedback = snapshot.ratingFeedback
+        self.nightlyReminderEnabled = snapshot.nightlyReminderEnabled
         // archivedWeeks + currentWeekStartDate + forwardPlannedWeek already set above.
     }
 }

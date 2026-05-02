@@ -29,6 +29,83 @@ enum RecipeImporter {
     private static let model = "claude-sonnet-4-6"
     private static let maxHTMLChars = 30_000
 
+    /// Same shape as `importFrom(urlString:)` but takes raw text — useful for
+    /// paywalled recipes (paste the body), email recipes friends sent you, or
+    /// hand-typed family recipes.
+    static func importFromText(text: String, apiKey: String) async throws -> Meal {
+        let trimmedKey = apiKey
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        guard !trimmedKey.isEmpty else { throw ImportError.missingKey }
+
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { throw ImportError.noContent }
+
+        // Truncate same as URL-fetched HTML — keeps token usage predictable.
+        let truncated = String(trimmedText.prefix(maxHTMLChars))
+
+        let prompt = """
+        Below is the body of a recipe (from a website, email, message, or hand-typed). \
+        Extract a structured recipe.
+
+        Source text:
+        ---
+        \(truncated)
+        ---
+
+        Return ONLY a single JSON object — no prose, no markdown fences. Shape:
+        {
+          "title": "short recipe title",
+          "time": int_minutes_total,
+          "kid": true|false,
+          "tags": ["string", ...],
+          "protein": "fresh_beef" | "fresh_chicken" | "fresh_chick_b" | "fresh_chuck" | "fresh_steak" | "fresh_pork" | "fresh_turkey" | "fresh_bacon" | "pantry_beans" | "pantry_eggs",
+          "ingredients": [
+            { "name": "...", "qty": "1 lb", "aisle": "produce|meat|dairy|bakery|pantry|frozen" }
+          ],
+          "steps": ["step 1", "step 2", ...]
+        }
+
+        Rules:
+        - Use real qtys you'd put on a grocery list.
+        - kid = true only if it's clearly kid-friendly.
+        - If the text doesn't contain a recognizable recipe, return {"title":"Couldn't find a recipe","time":0,"kid":false,"tags":[],"protein":"pantry_eggs","ingredients":[],"steps":[]}.
+        """
+
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 2000,
+            "messages": [["role": "user", "content": prompt]]
+        ]
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.setValue(trimmedKey, forHTTPHeaderField: "x-api-key")
+        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        req.timeoutInterval = 30
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, resp): (Data, URLResponse)
+        do {
+            (data, resp) = try await URLSession.shared.data(for: req)
+        } catch {
+            throw ImportError.network(error)
+        }
+        guard let http = resp as? HTTPURLResponse else { throw ImportError.http(0, "no http response") }
+        guard (200..<300).contains(http.statusCode) else {
+            let msg = String(data: data, encoding: .utf8) ?? "<no body>"
+            throw ImportError.http(http.statusCode, msg)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let content = json["content"] as? [[String: Any]],
+              let firstText = content.first(where: { ($0["type"] as? String) == "text" }),
+              let textOut = firstText["text"] as? String
+        else { throw ImportError.decode("missing content[].text") }
+
+        return try parse(textOut, mealId: "text-\(UUID().uuidString.prefix(8))")
+    }
+
     /// Same shape as `importFrom(urlString:)` but takes a photo. The photo is
     /// resized to ~1024px and sent to Claude with a recipe-extraction prompt.
     /// Works for cookbook pages, magazine recipes, screenshots, handwritten cards.
