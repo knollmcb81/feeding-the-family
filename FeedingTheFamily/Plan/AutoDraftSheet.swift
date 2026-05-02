@@ -94,6 +94,7 @@ struct AutoDraftSheet: View {
                     .background(Circle().fill(T.paperDeep))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)

@@ -72,6 +72,7 @@ struct ImportRecipeSheet: View {
                     .background(Circle().fill(T.paperDeep))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 22)
         .padding(.top, 14)

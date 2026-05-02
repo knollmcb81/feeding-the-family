@@ -23,9 +23,25 @@ struct PlanScreen: View {
             FreshnessLane(week: viewedWeek, rules: state.rules)
                 .padding(.horizontal, 22)
                 .padding(.bottom, 6)
+            if isViewingCurrent {
+                WeeklyRecapCard(
+                    week: state.week,
+                    ratings: state.ratings,
+                    ratingFeedback: state.ratingFeedback,
+                    unratedDays: state.unratedDays,
+                    todayIdx: state.todayIdx
+                )
+                .padding(.horizontal, 22)
+                .padding(.bottom, 8)
+            }
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
+                        if !isViewingCurrent && nextWeekIsUntouched {
+                            nextWeekEmpty
+                                .padding(.horizontal, 12)
+                                .padding(.top, 8)
+                        }
                         ForEach(Array(viewedWeek.enumerated()), id: \.element.id) { idx, day in
                             DayCard(
                                 day: day,
@@ -183,6 +199,46 @@ struct PlanScreen: View {
             .buttonStyle(.plain)
             .disabled(!isViewingCurrent)
         }
+    }
+
+    /// True when next-week is still the bare seed pattern with no locks — the
+    /// signal that the user hasn't planned it yet, so we show a "tap Auto-draft"
+    /// callout instead of pretending those meals are intentional.
+    private var nextWeekIsUntouched: Bool {
+        guard let fp = state.forwardPlannedWeek, fp.count == 7 else { return true }
+        for (idx, day) in fp.enumerated() {
+            if day.locked { return false }
+            if day.mealId != SeedData.week[idx].mealId { return false }
+        }
+        return true
+    }
+
+    private var nextWeekEmpty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(T.ink2)
+                Text("NEXT WEEK IS A BLANK SLATE")
+                    .font(AppFont.text(10.5, weight: .bold))
+                    .kerning(1.2)
+                    .foregroundStyle(T.ink2)
+            }
+            Text("These are placeholder meals. Tap **Auto-draft** to generate a real plan based on your rules + family ratings, or **Swap** any day to pick something specific.")
+                .font(AppFont.text(12.5))
+                .foregroundStyle(T.ink2)
+                .lineSpacing(2)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(T.accent.opacity(0.18))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(T.accent2.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 
     /// Build a default empty week for "next week" with proper dates. Uses the

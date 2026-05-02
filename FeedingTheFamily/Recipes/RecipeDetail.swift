@@ -204,6 +204,7 @@ struct RecipeDetail: View {
                         .background(Circle().fill(T.paperDeep))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close")
                 editToggle
             }
         }

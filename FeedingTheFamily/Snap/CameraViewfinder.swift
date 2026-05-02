@@ -175,6 +175,7 @@ struct CameraViewfinder: View {
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(Color.white.opacity(0.12)))
             }
+            .accessibilityLabel("Pick a photo from library")
             .onChange(of: pickerItem) { _, newItem in
                 guard let newItem else { return }
                 Task {
@@ -217,6 +218,7 @@ struct CameraViewfinder: View {
             }
             .buttonStyle(ShutterPress())
             .disabled(capturing)
+            .accessibilityLabel("Take photo")
 
             Spacer()
             // Settings (decorative)

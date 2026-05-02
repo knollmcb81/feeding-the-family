@@ -137,6 +137,7 @@ struct SnapResultSheet: View {
                     .background(Circle().fill(T.paperDeep))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 22)
         .padding(.top, 14)
@@ -304,6 +305,7 @@ struct SnapResultSheet: View {
                     .background(Circle().strokeBorder(T.rule, lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Save to Ideas")
         }
         .padding(.horizontal, 22)
         .padding(.bottom, 22)
