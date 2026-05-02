@@ -30,10 +30,16 @@ struct ListScreen: View {
 
     /// Days actually feeding the grocery list — based on selectedListDays.
     /// Pulls from current week, plus next week if a forward plan exists.
+    /// Past days in the current week are excluded automatically: once a day
+    /// has come and gone, you've already shopped (or skipped) for it, so its
+    /// ingredients shouldn't keep cluttering the list.
     private var selectedDayPlans: [DayPlan] {
         var out: [DayPlan] = []
-        for day in state.week where state.selectedListDays.contains("0-\(day.day)") {
-            out.append(day)
+        for (idx, day) in state.week.enumerated() {
+            if idx < state.todayIdx { continue }
+            if state.selectedListDays.contains("0-\(day.day)") {
+                out.append(day)
+            }
         }
         if let fp = state.forwardPlannedWeek {
             for day in fp where state.selectedListDays.contains("1-\(day.day)") {
@@ -41,6 +47,18 @@ struct ListScreen: View {
             }
         }
         return out
+    }
+
+    /// Total day chips that are still selectable (not past) — drives the
+    /// "X of N" counter so it stays honest as the week ages.
+    private var selectableDaysTotal: Int {
+        let upcoming = max(0, 7 - state.todayIdx)
+        return upcoming + (state.forwardPlannedWeek == nil ? 0 : 7)
+    }
+
+    /// Number of *currently selectable* days that are in the list.
+    private var selectedDaysCount: Int {
+        selectedDayPlans.count
     }
 
     private var grouped: [Aisle: [GroceryItem]] {
@@ -186,7 +204,7 @@ struct ListScreen: View {
                     .kerning(1.2)
                     .foregroundStyle(T.ink3)
                 Spacer()
-                Text("\(state.selectedListDays.count) of 14")
+                Text("\(selectedDaysCount) of \(selectableDaysTotal)")
                     .font(AppFont.mono(10))
                     .foregroundStyle(T.ink3)
             }
@@ -200,23 +218,26 @@ struct ListScreen: View {
     private func dayRow(weekOffset: Int, label: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 4) {
-                ForEach(Today.labels, id: \.self) { d in
+                ForEach(Array(Today.labels.enumerated()), id: \.element) { idx, d in
                     let key = "\(weekOffset)-\(d)"
                     let on = state.selectedListDays.contains(key)
+                    let isPast = weekOffset == 0 && idx < state.todayIdx
                     Button {
                         if on { state.selectedListDays.remove(key) }
                         else { state.selectedListDays.insert(key) }
                     } label: {
                         Text(String(d.prefix(1)))
                             .font(AppFont.mono(11, weight: .bold))
-                            .foregroundStyle(on ? T.ink : T.ink3)
+                            .foregroundStyle(isPast ? T.ink3.opacity(0.5) : (on ? T.ink : T.ink3))
                             .frame(maxWidth: .infinity, minHeight: 30)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .fill(on ? T.accent : T.paperDeep)
+                                    .fill(isPast ? T.paperDeep.opacity(0.5) : (on ? T.accent : T.paperDeep))
                             )
                     }
                     .buttonStyle(.plain)
+                    .disabled(isPast)
+                    .accessibilityLabel(isPast ? "\(d) (past)" : d)
                 }
             }
             Text(label)
