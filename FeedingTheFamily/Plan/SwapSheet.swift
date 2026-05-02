@@ -24,42 +24,14 @@ struct SwapSheet: View {
     }
 
     private var candidates: [Candidate] {
-        let isQuick = rules.quickNights.contains(day.day)
-        let prevProtein: String? = dayIdx > 0
-            ? Planner.protein(for: Planner.activeMeal(id: week[dayIdx - 1].mealId,
-                                                     overrides: mealOverrides,
-                                                     custom: customMeals)).name
-            : nil
-        let weekMealsExceptThis = Set(week.enumerated()
-            .filter { $0.offset != dayIdx }
-            .map(\.element.mealId))
-
-        // Swap is permissive about the fresh-meat day window — the freshness lane
-        // already flags violations visually, and a swap is a deliberate manual
-        // override anyway. This is what makes Sun (day 7) show real options
-        // instead of just "leftovers".
-        let pool = Planner.allMeals(custom: customMeals, dismissed: dismissedMealIds)
+        // Swap shows the full library. Filters that auto-draft uses (fresh-meat
+        // day, no-repeat protein, quick-night time cap, no-duplicate-this-week)
+        // belong to AUTOMATED selection — when the user explicitly swaps, they
+        // know what they want. Only excluded: the current day's meal (no-op)
+        // and any meal the user hid (dismissedMealIds).
+        Planner.allMeals(custom: customMeals, dismissed: dismissedMealIds)
             .map { Planner.activeMeal(id: $0.id, overrides: mealOverrides, custom: customMeals) }
-
-        func filter(strict: Bool) -> [Meal] {
-            pool.filter { m in
-                if m.id == day.mealId { return false }
-                if weekMealsExceptThis.contains(m.id) { return false }
-                if m.ings.contains(where: { rules.avoidIngredients.contains($0.name) }) { return false }
-                if isQuick && m.time > 30 { return false }
-                let p = Planner.protein(for: m)
-                if strict, let prev = prevProtein, prev == p.name { return false }
-                return true
-            }
-        }
-
-        var meals = filter(strict: true)
-        if meals.isEmpty {
-            // Last-ditch: also drop the no-repeat-protein rule.
-            meals = filter(strict: false)
-        }
-
-        return meals
+            .filter { $0.id != day.mealId }
             .map {
                 Candidate(
                     meal: $0,

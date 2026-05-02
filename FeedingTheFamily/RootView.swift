@@ -59,6 +59,9 @@ final class AppState {
     var customItems: [GroceryItem] = []
     var staples: [GroceryItem] = SeedData.defaultStaples
     var staplesOn: Bool = true
+    /// Which day-week pairs feed the grocery list. Keys: "0-Mon" (current week)
+    /// or "1-Tue" (next week). Default selects every day of the current week.
+    var selectedListDays: Set<String> = Set(Today.labels.map { "0-\($0)" })
 
     // Per-meal recipe overrides. Stores the whole customized Meal — title, time,
     // kid flag, ingredients, steps. Wins over the seed in `SeedData.meals`.

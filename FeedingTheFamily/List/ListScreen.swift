@@ -28,9 +28,24 @@ struct ListScreen: View {
         return lines.joined(separator: "\n")
     }
 
+    /// Days actually feeding the grocery list — based on selectedListDays.
+    /// Pulls from current week, plus next week if a forward plan exists.
+    private var selectedDayPlans: [DayPlan] {
+        var out: [DayPlan] = []
+        for day in state.week where state.selectedListDays.contains("0-\(day.day)") {
+            out.append(day)
+        }
+        if let fp = state.forwardPlannedWeek {
+            for day in fp where state.selectedListDays.contains("1-\(day.day)") {
+                out.append(day)
+            }
+        }
+        return out
+    }
+
     private var grouped: [Aisle: [GroceryItem]] {
         var base = Planner.groceryFor(
-            week: state.week,
+            week: selectedDayPlans,
             pantryHave: state.rules.pantryHave,
             overrides: state.mealOverrides
         )
@@ -71,6 +86,9 @@ struct ListScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            dayPicker
+                .padding(.horizontal, 22)
+                .padding(.top, 10)
             controls
                 .padding(.horizontal, 22)
                 .padding(.top, 10)
@@ -155,6 +173,56 @@ struct ListScreen: View {
             .background(RoundedRectangle(cornerRadius: 10).fill(T.paperDeep))
             .padding(.horizontal, 22)
             .padding(.top, 14)
+        }
+    }
+
+    // ── Day picker (current + next week) ─────────────
+
+    private var dayPicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("DAYS INCLUDED")
+                    .font(AppFont.text(10.5, weight: .bold))
+                    .kerning(1.2)
+                    .foregroundStyle(T.ink3)
+                Spacer()
+                Text("\(state.selectedListDays.count) of 14")
+                    .font(AppFont.mono(10))
+                    .foregroundStyle(T.ink3)
+            }
+            dayRow(weekOffset: 0, label: "this week")
+            if state.forwardPlannedWeek != nil {
+                dayRow(weekOffset: 1, label: "next week")
+            }
+        }
+    }
+
+    private func dayRow(weekOffset: Int, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                ForEach(Today.labels, id: \.self) { d in
+                    let key = "\(weekOffset)-\(d)"
+                    let on = state.selectedListDays.contains(key)
+                    Button {
+                        if on { state.selectedListDays.remove(key) }
+                        else { state.selectedListDays.insert(key) }
+                    } label: {
+                        Text(String(d.prefix(1)))
+                            .font(AppFont.mono(11, weight: .bold))
+                            .foregroundStyle(on ? T.ink : T.ink3)
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(on ? T.accent : T.paperDeep)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text(label)
+                .font(AppFont.text(10))
+                .foregroundStyle(T.ink3)
+                .padding(.leading, 2)
         }
     }
 

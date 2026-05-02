@@ -12,6 +12,7 @@ struct AppSnapshot: Codable {
     var customItems: [GroceryItem]
     var staples: [GroceryItem]
     var staplesOn: Bool
+    var selectedListDays: Set<String> = Set(Today.labels.map { "0-\($0)" })
     var mealOverrides: [String: Meal]
     var snapLog: [SnapEntry]
     var lastSnapFixtureIdx: Int
@@ -83,6 +84,7 @@ extension AppState {
             customItems: customItems,
             staples: staples,
             staplesOn: staplesOn,
+            selectedListDays: selectedListDays,
             mealOverrides: mealOverrides,
             snapLog: snapLog,
             lastSnapFixtureIdx: lastSnapFixtureIdx,
@@ -156,6 +158,7 @@ extension AppState {
         self.customItems = snapshot.customItems
         self.staples = snapshot.staples
         self.staplesOn = snapshot.staplesOn
+        self.selectedListDays = snapshot.selectedListDays
         self.mealOverrides = snapshot.mealOverrides
         self.snapLog = snapshot.snapLog
         self.lastSnapFixtureIdx = snapshot.lastSnapFixtureIdx
