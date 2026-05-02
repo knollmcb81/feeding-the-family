@@ -20,6 +20,11 @@ struct DayCard: View {
 
     private var needsRating: Bool { isPast && unrated }
 
+    /// Triggers a one-shot sparkle when day.mealId changes. Each new id gives
+    /// SparkleBurst a fresh identity, which restarts its onAppear animation.
+    @State private var sparkleId: UUID? = nil
+    @State private var lastMealId: String = ""
+
     var body: some View {
         let m = Planner.activeMeal(id: day.mealId, overrides: state.mealOverrides)
         let p = Planner.protein(for: m)
@@ -51,6 +56,24 @@ struct DayCard: View {
             }
         }
         .opacity(isPast && !needsRating ? 0.55 : 1)
+        .overlay {
+            if let sid = sparkleId {
+                SparkleBurst()
+                    .id(sid)
+            }
+        }
+        .onChange(of: day.mealId) { oldValue, newValue in
+            // Skip the first render — we don't want to fire on initial appearance.
+            // Only trigger when the meal genuinely changes after the card has shown.
+            if !lastMealId.isEmpty && oldValue != newValue {
+                sparkleId = UUID()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
+                    if sparkleId != nil { sparkleId = nil }
+                }
+            }
+            lastMealId = newValue
+        }
+        .onAppear { lastMealId = day.mealId }
     }
 
     private var rowBackground: some View {
