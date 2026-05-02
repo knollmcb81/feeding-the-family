@@ -146,7 +146,8 @@ extension AppState {
                 date: freshDay.date,
                 mealId: savedDay.mealId,
                 locked: savedDay.locked,
-                slot: freshDay.slot
+                slot: freshDay.slot,
+                sides: savedDay.sides
             )
         }
         // After promotion, clear the forward slot — user can plan another week ahead.

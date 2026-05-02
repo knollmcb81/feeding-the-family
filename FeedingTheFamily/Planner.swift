@@ -39,23 +39,31 @@ enum Planner {
         overrides: [String: Meal] = [:]
     ) -> [Aisle: [GroceryItem]] {
         var bucket: [String: GroceryItem] = [:]   // key: "name|aisle"
+        func add(ing: Ingredient, label: String) {
+            if pantryHave.contains(ing.name) { return }
+            let key = "\(ing.name)|\(ing.aisle.rawValue)"
+            if let cur = bucket[key] {
+                bucket[key] = GroceryItem(
+                    name: cur.name, aisle: cur.aisle,
+                    qty: cur.qty + [ing.qty],
+                    meals: cur.meals + [label],
+                    source: .meal
+                )
+            } else {
+                bucket[key] = GroceryItem(
+                    name: ing.name, aisle: ing.aisle,
+                    qty: [ing.qty], meals: [label], source: .meal
+                )
+            }
+        }
         for day in week {
             let m = activeMeal(id: day.mealId, overrides: overrides)
             for ing in m.ings {
-                if pantryHave.contains(ing.name) { continue }
-                let key = "\(ing.name)|\(ing.aisle.rawValue)"
-                if let cur = bucket[key] {
-                    bucket[key] = GroceryItem(
-                        name: cur.name, aisle: cur.aisle,
-                        qty: cur.qty + [ing.qty],
-                        meals: cur.meals + [m.title],
-                        source: .meal
-                    )
-                } else {
-                    bucket[key] = GroceryItem(
-                        name: ing.name, aisle: ing.aisle,
-                        qty: [ing.qty], meals: [m.title], source: .meal
-                    )
+                add(ing: ing, label: m.title)
+            }
+            for side in day.sides {
+                for ing in side.ings {
+                    add(ing: ing, label: side.name)
                 }
             }
         }

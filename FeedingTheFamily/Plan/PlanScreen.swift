@@ -5,6 +5,7 @@ struct PlanScreen: View {
     @State private var showAutoDraftSheet = false
     @State private var openRecipeMealId: String? = nil
     @State private var swapDayIdx: Int? = nil
+    @State private var sidesDayIdx: Int? = nil
     @State private var showSettings = false
     /// 0 = current week, 1 = next week. Transient — not persisted.
     @State private var viewedOffset: Int = 0
@@ -58,7 +59,8 @@ struct PlanScreen: View {
                                 onSwap: { swapDayIdx = idx },
                                 onToggleGroceryList: { toggleGroceryList(day: day) },
                                 onRate: { stars, note in rate(day: day, stars: stars, note: note) },
-                                onOpenRecipe: { openRecipeMealId = day.mealId }
+                                onOpenRecipe: { openRecipeMealId = day.mealId },
+                                onEditSides: { sidesDayIdx = idx }
                             )
                             .id(day.id)
                         }
@@ -132,6 +134,29 @@ struct PlanScreen: View {
             SettingsSheet()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: Binding(
+            get: { sidesDayIdx.map { SwapIdxWrap(idx: $0) } },
+            set: { sidesDayIdx = $0?.idx })
+        ) { wrap in
+            DaySidesSheet(
+                dayLabel: viewedWeek[wrap.idx].day,
+                mealTitle: Planner.activeMeal(
+                    id: viewedWeek[wrap.idx].mealId,
+                    overrides: state.mealOverrides,
+                    custom: state.customMeals
+                ).title,
+                sides: Binding(
+                    get: { viewedWeek[wrap.idx].sides },
+                    set: { newSides in
+                        var next = viewedWeek
+                        next[wrap.idx].sides = newSides
+                        setViewedWeek(next)
+                    }
+                )
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 

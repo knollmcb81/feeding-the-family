@@ -17,6 +17,7 @@ struct DayCard: View {
     let onToggleGroceryList: () -> Void
     let onRate: (Int, String?) -> Void
     let onOpenRecipe: () -> Void
+    let onEditSides: () -> Void
 
     private var needsRating: Bool { isPast && unrated }
 
@@ -111,6 +112,7 @@ struct DayCard: View {
                 .foregroundStyle(T.ink)
                 .fixedSize(horizontal: false, vertical: true)
             metaRow(protein: p, time: m.time, kid: m.kid)
+            sidesRow
             if let w = warning {
                 Text(w.msg)
                     .font(AppFont.text(11.5, weight: .medium))
@@ -188,6 +190,41 @@ struct DayCard: View {
             )
             .font(AppFont.text(12))
             .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private var sidesRow: some View {
+        if !day.sides.isEmpty {
+            Button(action: onEditSides) {
+                HStack(spacing: 4) {
+                    Image(systemName: "leaf")
+                        .font(.system(size: 9))
+                        .foregroundStyle(T.accent2)
+                    Text("with ")
+                        .foregroundStyle(T.ink3)
+                    + Text(day.sides.map(\.name).joined(separator: " · "))
+                        .foregroundStyle(T.ink2)
+                }
+                .font(AppFont.text(11.5, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Edit sides for \(day.day)")
+        } else if !isPast {
+            Button(action: onEditSides) {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 8, weight: .bold))
+                    Text("add side")
+                        .font(AppFont.text(10.5, weight: .semibold))
+                        .kerning(0.3)
+                }
+                .foregroundStyle(T.ink3)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Add a side to \(day.day)")
         }
     }
 

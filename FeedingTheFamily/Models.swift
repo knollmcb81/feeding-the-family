@@ -42,6 +42,21 @@ struct Meal: Identifiable, Hashable, Codable {
 
 enum DaySlot: String, Codable { case cook, quick, leftover, crockpot, weekend }
 
+/// A side dish attached to a specific day's plan (e.g. "bruschetta" with the
+/// pork loin). Belongs to the DayPlan, not the Meal — same recipe on a
+/// different night might pair with different sides.
+struct DaySide: Codable, Hashable, Identifiable {
+    var id: UUID
+    var name: String
+    var ings: [Ingredient]
+
+    init(id: UUID = UUID(), name: String, ings: [Ingredient] = []) {
+        self.id = id
+        self.name = name
+        self.ings = ings
+    }
+}
+
 struct DayPlan: Identifiable, Hashable, Codable {
     var id: String { day }
     let day: String
@@ -49,6 +64,31 @@ struct DayPlan: Identifiable, Hashable, Codable {
     var mealId: String
     var locked: Bool
     var slot: DaySlot
+    var sides: [DaySide]
+
+    init(day: String, date: String, mealId: String, locked: Bool, slot: DaySlot, sides: [DaySide] = []) {
+        self.day = day
+        self.date = date
+        self.mealId = mealId
+        self.locked = locked
+        self.slot = slot
+        self.sides = sides
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case day, date, mealId, locked, slot, sides
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        day = try c.decode(String.self, forKey: .day)
+        date = try c.decode(String.self, forKey: .date)
+        mealId = try c.decode(String.self, forKey: .mealId)
+        locked = try c.decode(Bool.self, forKey: .locked)
+        slot = try c.decode(DaySlot.self, forKey: .slot)
+        // Older snapshots predate sides; treat missing key as empty.
+        sides = try c.decodeIfPresent([DaySide].self, forKey: .sides) ?? []
+    }
 }
 
 struct Rules: Codable {
