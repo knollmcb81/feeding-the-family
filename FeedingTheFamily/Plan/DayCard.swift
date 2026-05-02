@@ -11,8 +11,10 @@ struct DayCard: View {
     let confidence: Double
     let trend: Trend
     let unrated: Bool
+    let inGroceryList: Bool
     let onToggleLock: () -> Void
     let onSwap: () -> Void
+    let onToggleGroceryList: () -> Void
     let onRate: (Int, String?) -> Void
     let onOpenRecipe: () -> Void
 
@@ -218,6 +220,23 @@ struct DayCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Swap \(day.day)'s meal")
+
+                Button(action: onToggleGroceryList) {
+                    Image(systemName: inGroceryList ? "cart.fill" : "cart")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(inGroceryList ? T.accent2 : T.ink3)
+                        .frame(width: 34, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: Radius.mini)
+                                .fill(inGroceryList ? T.accent2.opacity(0.12) : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Radius.mini)
+                                        .stroke(inGroceryList ? Color.clear : T.rule, lineWidth: 1)
+                                )
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(inGroceryList ? "Remove \(day.day) from grocery list" : "Add \(day.day) to grocery list")
             }
         }
     }

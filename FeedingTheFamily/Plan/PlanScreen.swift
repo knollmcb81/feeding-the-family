@@ -53,8 +53,10 @@ struct PlanScreen: View {
                                 confidence: Learning.confidence(for: day.mealId, ratings: state.ratings),
                                 trend: Learning.trend(for: day.mealId, ratings: state.ratings),
                                 unrated: isViewingCurrent && state.unratedDays.contains(day.day),
+                                inGroceryList: state.selectedListDays.contains(listKey(for: day)),
                                 onToggleLock: { toggleLock(idx: idx) },
                                 onSwap: { swapDayIdx = idx },
+                                onToggleGroceryList: { toggleGroceryList(day: day) },
                                 onRate: { stars, note in rate(day: day, stars: stars, note: note) },
                                 onOpenRecipe: { openRecipeMealId = day.mealId }
                             )
@@ -260,6 +262,19 @@ struct PlanScreen: View {
             state.week = next
         } else {
             state.forwardPlannedWeek = next
+        }
+    }
+
+    private func listKey(for day: DayPlan) -> String {
+        "\(viewedOffset)-\(day.day)"
+    }
+
+    private func toggleGroceryList(day: DayPlan) {
+        let key = listKey(for: day)
+        if state.selectedListDays.contains(key) {
+            state.selectedListDays.remove(key)
+        } else {
+            state.selectedListDays.insert(key)
         }
     }
 
