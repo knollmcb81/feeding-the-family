@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Feeding the Family — Privacy</title>
+  <style>
+    body {
+      font-family: -apple-system, "Inter Tight", system-ui, sans-serif;
+      max-width: 640px;
+      margin: 40px auto;
+      padding: 0 22px;
+      color: #0e0e0c;
+      background: #fafaf7;
+      line-height: 1.55;
+    }
+    h1 { font-size: 28px; letter-spacing: -0.7px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin-top: 32px; letter-spacing: -0.2px; }
+    .eyebrow { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: #8f8f87; font-weight: 700; }
+    a { color: #0e0e0c; }
+    ul { padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    code { font-family: "SF Mono", ui-monospace, monospace; font-size: 13px; background: #f1f1ec; padding: 1px 5px; border-radius: 4px; }
+    .meta { color: #8f8f87; font-size: 12px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="eyebrow">Feeding the Family</div>
+  <h1>Privacy Policy</h1>
+  <div class="meta">Last updated: May 1, 2026</div>
+
+  <h2>What we collect</h2>
+  <p>Nothing. Feeding the Family is a personal meal planning app. All of your data — your meal plans, grocery lists, recipes, snap photos, and ratings — is stored locally on your device.</p>
+
+  <h2>What we send to a server</h2>
+  <p>Two features make optional network requests, and only if you've configured them:</p>
+  <ul>
+    <li><strong>Snap → AI estimate.</strong> When you tap the camera shutter and have provided your own Anthropic API key in Settings, the captured photo (resized to ~1024px JPEG) is sent over HTTPS to <code>api.anthropic.com</code> for Claude to identify the food. The photo is sent only for that one request and is not retained by Anthropic per their <a href="https://www.anthropic.com/legal">privacy terms</a>.</li>
+    <li><strong>Recipe import / Generate recipe.</strong> When you import a recipe by URL or generate one from a saved inspiration, the URL's text content (or the inspiration data) is sent over HTTPS to <code>api.anthropic.com</code> for Claude to convert into a structured recipe.</li>
+  </ul>
+  <p>These requests are made directly from your device using your Anthropic API key. We do not run a server. We do not see, store, or have access to any of this data.</p>
+
+  <h2>Camera and photos</h2>
+  <p>The Snap tab uses your device's camera to capture a photo of your meal. Photos are processed locally and, if you've enabled AI estimates, sent to the Anthropic API for that single request. Photos are not saved to your photo library by the app.</p>
+
+  <h2>Your Anthropic API key</h2>
+  <p>If you provide an Anthropic API key, it is stored unencrypted in the app's local data file on your device. It is never transmitted anywhere except to <code>api.anthropic.com</code> as the authentication header for your own requests. You can clear it any time in Settings → AI Vision.</p>
+
+  <h2>Tracking and analytics</h2>
+  <p>None. The app does not include any analytics, advertising, or tracking SDKs. We do not have a way to know when you use the app or what you do with it.</p>
+
+  <h2>Account deletion</h2>
+  <p>There is no account. To clear all stored data, delete the app — iOS removes its data along with it.</p>
+
+  <h2>Children</h2>
+  <p>The app is intended for adults. It does not knowingly collect data from anyone of any age.</p>
+
+  <h2>Contact</h2>
+  <p>Questions: <a href="mailto:knollmcb@gmail.com">knollmcb@gmail.com</a></p>
+</body>
+</html>
