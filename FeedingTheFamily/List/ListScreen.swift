@@ -65,7 +65,8 @@ struct ListScreen: View {
         var base = Planner.groceryFor(
             week: selectedDayPlans,
             pantryHave: state.rules.pantryHave,
-            overrides: state.mealOverrides
+            overrides: state.mealOverrides,
+            custom: state.customMeals
         )
         if state.staplesOn {
             for s in state.staples {

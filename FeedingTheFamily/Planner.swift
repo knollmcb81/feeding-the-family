@@ -36,7 +36,8 @@ enum Planner {
     static func groceryFor(
         week: [DayPlan],
         pantryHave: Set<String> = [],
-        overrides: [String: Meal] = [:]
+        overrides: [String: Meal] = [:],
+        custom: [Meal] = []
     ) -> [Aisle: [GroceryItem]] {
         var bucket: [String: GroceryItem] = [:]   // key: "name|aisle"
         func add(ing: Ingredient, label: String) {
@@ -57,7 +58,7 @@ enum Planner {
             }
         }
         for day in week {
-            let m = activeMeal(id: day.mealId, overrides: overrides)
+            let m = activeMeal(id: day.mealId, overrides: overrides, custom: custom)
             for ing in m.ings {
                 add(ing: ing, label: m.title)
             }

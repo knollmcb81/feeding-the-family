@@ -27,7 +27,7 @@ struct DayCard: View {
     @State private var lastMealId: String = ""
 
     var body: some View {
-        let m = Planner.activeMeal(id: day.mealId, overrides: state.mealOverrides)
+        let m = Planner.activeMeal(id: day.mealId, overrides: state.mealOverrides, custom: state.customMeals)
         let p = Planner.protein(for: m)
 
         HStack(alignment: .top, spacing: 14) {
