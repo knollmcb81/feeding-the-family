@@ -56,6 +56,11 @@ final class AppState {
 
     // Grocery list state.
     var checkedItems: Set<String> = []         // keyed by GroceryItem.id ("aisle|name")
+    /// Items the user explicitly skipped via the per-row menu — keyed the same
+    /// way as checkedItems. Cleared on Monday rollover so each fresh week starts
+    /// without stale skips. Distinct from "I have this": skipping is per-trip,
+    /// pantryHave is permanent.
+    var skippedListItems: Set<String> = []
     var customItems: [GroceryItem] = []
     var staples: [GroceryItem] = SeedData.defaultStaples
     var staplesOn: Bool = true

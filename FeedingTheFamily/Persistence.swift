@@ -30,6 +30,7 @@ struct AppSnapshot: Codable {
     var nightlyReminderEnabled: Bool = false
     var backendBaseURL: String = ""
     var backendAuthToken: String = ""
+    var skippedListItems: Set<String> = []
 }
 
 enum Persistence {
@@ -101,7 +102,8 @@ extension AppState {
             ratingFeedback: ratingFeedback,
             nightlyReminderEnabled: nightlyReminderEnabled,
             backendBaseURL: backendBaseURL,
-            backendAuthToken: backendAuthToken
+            backendAuthToken: backendAuthToken,
+            skippedListItems: skippedListItems
         )
     }
 
@@ -183,6 +185,9 @@ extension AppState {
         self.nightlyReminderEnabled = snapshot.nightlyReminderEnabled
         self.backendBaseURL = snapshot.backendBaseURL
         self.backendAuthToken = snapshot.backendAuthToken
+        // Per-trip skips reset on Monday rollover so a fresh week doesn't
+        // inherit "I skipped this last week" decisions.
+        self.skippedListItems = isRollover ? [] : snapshot.skippedListItems
         // archivedWeeks + currentWeekStartDate + forwardPlannedWeek already set above.
     }
 }

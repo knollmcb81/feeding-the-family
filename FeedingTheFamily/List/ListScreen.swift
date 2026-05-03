@@ -77,7 +77,9 @@ struct ListScreen: View {
         for c in state.customItems {
             base[c.aisle, default: []].append(c)
         }
+        // Drop anything the user explicitly skipped this trip.
         for a in base.keys {
+            base[a]?.removeAll { state.skippedListItems.contains($0.id) }
             base[a]?.sort { $0.name < $1.name }
         }
         return base
@@ -465,7 +467,11 @@ struct ListScreen: View {
                 ListRow(
                     item: item,
                     isChecked: state.checkedItems.contains(item.id),
-                    onToggle: { toggle(item.id) }
+                    onToggle: { toggle(item.id) },
+                    onSkip: { state.skippedListItems.insert(item.id) },
+                    onAlwaysHave: { state.rules.pantryHave.insert(item.name) },
+                    onDeleteCustom: { state.customItems.removeAll { $0.id == item.id } },
+                    onRemoveStaple: { state.staples.removeAll { $0.id == item.id } }
                 )
             }
         }
@@ -648,34 +654,87 @@ private struct ListRow: View {
     let item: GroceryItem
     let isChecked: Bool
     let onToggle: () -> Void
+    let onSkip: () -> Void
+    let onAlwaysHave: () -> Void
+    let onDeleteCustom: () -> Void
+    let onRemoveStaple: () -> Void
 
     var body: some View {
-        Button(action: onToggle) {
-            HStack(alignment: .top, spacing: 12) {
-                checkbox
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name)
-                        .font(AppFont.text(15, weight: .medium))
-                        .foregroundStyle(isChecked ? T.ink3 : T.ink)
-                        .strikethrough(isChecked, color: T.ink3)
-                    Text(metaLine)
-                        .font(AppFont.mono(10.5))
-                        .foregroundStyle(T.ink3)
-                        .strikethrough(isChecked, color: T.ink3)
-                        .lineLimit(1)
+        HStack(alignment: .top, spacing: 8) {
+            Button(action: onToggle) {
+                HStack(alignment: .top, spacing: 12) {
+                    checkbox
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.name)
+                            .font(AppFont.text(15, weight: .medium))
+                            .foregroundStyle(isChecked ? T.ink3 : T.ink)
+                            .strikethrough(isChecked, color: T.ink3)
+                        Text(metaLine)
+                            .font(AppFont.mono(10.5))
+                            .foregroundStyle(T.ink3)
+                            .strikethrough(isChecked, color: T.ink3)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(.vertical, 11)
-            .padding(.horizontal, 6)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(T.ruleSoft)
-                    .frame(height: 1)
-                    .padding(.horizontal, 6)
-            }
+            .buttonStyle(.plain)
+            rowMenu
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 11)
+        .padding(.horizontal, 6)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(T.ruleSoft)
+                .frame(height: 1)
+                .padding(.horizontal, 6)
+        }
+    }
+
+    /// Per-row "•••" menu. Items vary by source — staples and custom items
+    /// get a manage-this-list option, meal-derived items get the "this trip"
+    /// vs "always" pair.
+    private var rowMenu: some View {
+        Menu {
+            switch item.source {
+            case .meal:
+                Button {
+                    onSkip()
+                } label: {
+                    Label("Skip for this trip", systemImage: "minus.circle")
+                }
+                Button {
+                    onAlwaysHave()
+                } label: {
+                    Label("I always have this", systemImage: "checkmark.seal")
+                }
+            case .staple:
+                Button {
+                    onSkip()
+                } label: {
+                    Label("Skip for this trip", systemImage: "minus.circle")
+                }
+                Button(role: .destructive) {
+                    onRemoveStaple()
+                } label: {
+                    Label("Remove from staples", systemImage: "trash")
+                }
+            case .custom:
+                Button(role: .destructive) {
+                    onDeleteCustom()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(T.ink3)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .accessibilityLabel("More actions for \(item.name)")
     }
 
     private var checkbox: some View {
