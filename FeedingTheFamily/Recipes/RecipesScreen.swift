@@ -6,6 +6,7 @@ struct RecipesScreen: View {
     @State private var openMealId: String? = nil
     @State private var showHistory: Bool = false
     @State private var showImport: Bool = false
+    @State private var pendingDeleteId: String? = nil
 
     private struct Annotated: Identifiable {
         let meal: Meal
@@ -14,6 +15,7 @@ struct RecipesScreen: View {
         var id: String { meal.id }
     }
 
+    /// In-rotation meals (excludes anything the user has set aside).
     private var annotated: [Annotated] {
         Planner.allMeals(custom: state.customMeals, dismissed: state.dismissedMealIds).map { base in
             let resolved = Planner.activeMeal(id: base.id, overrides: state.mealOverrides, custom: state.customMeals)
@@ -23,6 +25,20 @@ struct RecipesScreen: View {
                 trend: Learning.trend(for: resolved.id, ratings: state.ratings)
             )
         }
+    }
+
+    /// Meals the user has manually set aside via the per-row menu.
+    private var setAside: [Annotated] {
+        (SeedData.meals + state.customMeals)
+            .filter { state.dismissedMealIds.contains($0.id) }
+            .map { base in
+                let resolved = Planner.activeMeal(id: base.id, overrides: state.mealOverrides, custom: state.customMeals)
+                return Annotated(
+                    meal: resolved,
+                    confidence: Learning.confidence(for: resolved.id, ratings: state.ratings),
+                    trend: Learning.trend(for: resolved.id, ratings: state.ratings)
+                )
+            }
     }
 
     private var mostLoved: [Annotated] {
@@ -37,9 +53,14 @@ struct RecipesScreen: View {
         case .quick:  return annotated.filter { $0.meal.time <= 25 }
         case .kid:    return annotated.filter { $0.meal.kid }
         case .weekend:return annotated.filter { $0.meal.time >= 45 }
-        case .slop:   return annotated.filter { $0.confidence > 0 && $0.confidence < 3 }
+        case .slop:
+            // Set-aside (manual) first, then any low-rated leftovers.
+            let lowRated = annotated.filter { $0.confidence > 0 && $0.confidence < 3 }
+            return setAside + lowRated
         }
     }
+
+    private var isInSlop: Bool { filter == .slop }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -88,6 +109,7 @@ struct RecipesScreen: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .background(deleteAlert)
     }
 
     private var header: some View {
@@ -279,7 +301,7 @@ struct RecipesScreen: View {
         case .quick:   return "No quick recipes"
         case .kid:     return "No kid-approved recipes"
         case .weekend: return "No weekend recipes"
-        case .slop:    return "No flops yet 🎉"
+        case .slop:    return "Nothing set aside"
         }
     }
 
@@ -289,56 +311,133 @@ struct RecipesScreen: View {
         case .quick:   return "Quick recipes are 25 minutes or less. Edit a recipe's cook time to surface it here."
         case .kid:     return "Recipes flagged kid-approved show up here. Toggle Kid-approved on a recipe in edit mode."
         case .weekend: return "Recipes 45+ minutes show up here — the weekend project meals."
-        case .slop:    return "Recipes the family rated below 3 stars. Hopefully empty for a while."
+        case .slop:    return "Tap the ••• menu on any recipe to set it aside. It'll land here, out of rotation, and you can bring it back anytime."
         }
     }
 
     private func recipeRow(_ a: Annotated) -> some View {
-        Button { openMealId = a.meal.id } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(a.meal.title)
-                        .font(AppFont.text(15, weight: .semibold))
-                        .kerning(-0.2)
-                        .foregroundStyle(T.ink)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    HStack(spacing: 8) {
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(proteinDotColor(Planner.protein(for: a.meal)))
-                                .frame(width: 7, height: 7)
-                            Text(Planner.protein(for: a.meal).name)
-                                .font(AppFont.text(11))
-                                .foregroundStyle(T.ink2)
-                        }
-                        Text("·").foregroundStyle(T.rule)
-                        Text("\(a.meal.time)m")
-                            .font(AppFont.mono(11))
-                            .foregroundStyle(T.ink2)
-                        if a.meal.kid {
+        HStack(alignment: .top, spacing: 8) {
+            Button { openMealId = a.meal.id } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(a.meal.title)
+                            .font(AppFont.text(15, weight: .semibold))
+                            .kerning(-0.2)
+                            .foregroundStyle(T.ink)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        HStack(spacing: 8) {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(proteinDotColor(Planner.protein(for: a.meal)))
+                                    .frame(width: 7, height: 7)
+                                Text(Planner.protein(for: a.meal).name)
+                                    .font(AppFont.text(11))
+                                    .foregroundStyle(T.ink2)
+                            }
                             Text("·").foregroundStyle(T.rule)
-                            Text("kid-approved")
-                                .font(AppFont.text(11, weight: .semibold))
-                                .foregroundStyle(T.accent2)
+                            Text("\(a.meal.time)m")
+                                .font(AppFont.mono(11))
+                                .foregroundStyle(T.ink2)
+                            if a.meal.kid {
+                                Text("·").foregroundStyle(T.rule)
+                                Text("kid-approved")
+                                    .font(AppFont.text(11, weight: .semibold))
+                                    .foregroundStyle(T.accent2)
+                            }
                         }
                     }
-                }
-                Spacer(minLength: 0)
-                VStack(alignment: .trailing, spacing: 4) {
-                    if a.confidence > 0 {
-                        ConfidenceBadge(confidence: a.confidence, trend: a.trend)
+                    Spacer(minLength: 0)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if a.confidence > 0 {
+                            ConfidenceBadge(confidence: a.confidence, trend: a.trend)
+                        }
+                        Sparkline(history: state.ratings[a.meal.id] ?? [], width: 56, height: 14)
                     }
-                    Sparkline(history: state.ratings[a.meal.id] ?? [], width: 56, height: 14)
                 }
             }
-            .padding(.vertical, 11)
-            .padding(.horizontal, 8)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(T.ruleSoft).frame(height: 1).padding(.horizontal, 8)
-            }
+            .buttonStyle(.plain)
+            rowMenu(a)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 11)
+        .padding(.horizontal, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(T.ruleSoft).frame(height: 1).padding(.horizontal, 8)
+        }
+    }
+
+    /// The "•••" menu shown at the right edge of every recipe row. Surfaces
+    /// destructive + reversible actions inline so the user doesn't have to
+    /// open the recipe, hit Edit, then find the trash button.
+    private func rowMenu(_ a: Annotated) -> some View {
+        Menu {
+            if state.dismissedMealIds.contains(a.meal.id) {
+                Button {
+                    state.dismissedMealIds.remove(a.meal.id)
+                } label: {
+                    Label("Bring back into rotation", systemImage: "arrow.uturn.backward")
+                }
+            } else {
+                Button {
+                    state.dismissedMealIds.insert(a.meal.id)
+                } label: {
+                    Label("Set aside (move to Slop)", systemImage: "tray.and.arrow.down")
+                }
+            }
+            Divider()
+            Button(role: .destructive) {
+                pendingDeleteId = a.meal.id
+            } label: {
+                Label("Delete recipe", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(T.ink3)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .accessibilityLabel("More actions for \(a.meal.title)")
+    }
+
+    private var deleteAlert: some View {
+        EmptyView()
+            .confirmationDialog(
+                pendingDeleteTitle,
+                isPresented: Binding(
+                    get: { pendingDeleteId != nil },
+                    set: { if !$0 { pendingDeleteId = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pendingDeleteId
+            ) { mealId in
+                Button("Delete", role: .destructive) {
+                    deleteMeal(id: mealId)
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: { _ in
+                Text("This recipe will be removed. Custom recipes are deleted permanently. Built-in recipes get set aside (you can bring them back from Slop).")
+            }
+    }
+
+    private var pendingDeleteTitle: String {
+        guard let id = pendingDeleteId else { return "" }
+        return "Delete \(Planner.activeMeal(id: id, overrides: state.mealOverrides, custom: state.customMeals).title)?"
+    }
+
+    /// Custom recipes get hard-removed; seed recipes get dismissed (we can't
+    /// truly purge them from the binary). Either way the meal disappears from
+    /// rotation, but seed meals remain restorable from Slop.
+    private func deleteMeal(id: String) {
+        if state.customMeals.contains(where: { $0.id == id }) {
+            state.customMeals.removeAll { $0.id == id }
+            state.mealOverrides[id] = nil
+            state.dismissedMealIds.remove(id)
+        } else {
+            state.dismissedMealIds.insert(id)
+        }
+        pendingDeleteId = nil
     }
 
     private func proteinDotColor(_ p: Protein) -> Color {
